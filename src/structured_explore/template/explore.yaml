@@ -1,0 +1,50 @@
+# A structured explore: filled step by step with the structured-explore skill, built by `structured-explore build`.
+title: <title>
+phenomenon: >-
+  <one sentence pointing at the data or the thing seen>
+# Where the page's Home link goes.
+home: /
+
+sample_space:
+  outcome: <what one row is, as a thing in the world>
+  source: <table, relative to the data root, e.g. datasets/x/x.parquet>
+  where: <sql picking the rows that are outcomes>
+  entry: >-
+    <how a row gets in, what is dropped>
+  time: <column ordering outcomes in time, a UTC timestamp>
+  timezone: UTC
+  variables:
+    - name: <column>
+      meaning: <what it is, with its unit>
+      observed: measured
+
+# joins:
+#   - name: <alias>
+#     source: <table>
+#     where: <sql>
+#     key: <column joined on>
+#     closes: <the gap step 3 named>
+#     variables:
+#       - {name: <column>, alias: <name in Ω>, meaning: <...>}
+
+graph: >-
+  <what may be conditioned on, and what the graph forbids>
+
+events:
+  - name: <event>
+    where: <sql boolean over Ω's columns>
+    meaning: <in words>
+    defined: before
+
+questions:
+  - kind: marginal
+    event: <event>
+    guess: [<lo>, <hi>]
+  # - kind: conditional
+  #   event: <event>
+  #   given: <event>
+  #   guess: [<lo>, <hi>]
+  #   lineup: true
+
+null: shuffle
+checks: [split_half]

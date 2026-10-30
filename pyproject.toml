@@ -1,0 +1,21 @@
+[project]
+name = "structured-explore"
+version = "0.1.0"
+description = "Explore data as a sample space: events on it, questions answered as counts with a null and a guess, on one page that reads the same every time."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["duckdb<2", "numpy", "pyyaml"]
+
+[project.scripts]
+structured-explore = "structured_explore.build:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/structured_explore"]
