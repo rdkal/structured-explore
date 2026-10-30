@@ -286,7 +286,7 @@ function draw(id) {
     return svg;
   }
   if (id === "marginal" || id === "joint" || id === "conditional") {
-    const svg = s("svg", { viewBox: `0 0 ${W} 150`, width: W, height: 150 });
+    const svg = s("svg", { viewBox: "0 0 440 150", width: 440, height: 150 });
     const cells = [["A and B", 0, 0], ["A and not B", 1, 0], ["not A and B", 0, 1], ["not A and not B", 1, 1]];
     const num = { marginal: ["A and B", "A and not B"], joint: ["A and B"], conditional: ["A and B"] }[id];
     const den = { marginal: cells.map((c) => c[0]), joint: cells.map((c) => c[0]), conditional: ["A and B", "not A and B"] }[id];
