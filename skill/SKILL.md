@@ -73,7 +73,8 @@ one function and one entry, and removed by deleting them:
 | the null | `nulls.py` | `NULLS` |
 | stability checks | `checks/<name>.py` | `checks.CHECKS` |
 | figures, as counts | `figures.py` | `FIGURES`, and the renderer of the same name in `web/app.js` |
-| captions and the reading card | `grammar.py` | `PARTS`, `HOW_TO_READ` |
+| captions | `grammar.py` | `PARTS` |
+| explanations, shown in the page's side pane | `concepts.py`, and `EXPLAIN` beside each registry | |
 | the page | `page.py`, `web/` | |
 | the command line | `build.py` | |
 
@@ -85,5 +86,6 @@ uv run --with pytest pytest
 ```
 
 To change how every page reads, change `grammar.py` or `web/` and rebuild the explores; to add a check, write
-`checks/<name>.py` with a `run` of the shared signature and name it in `CHECKS`; to add a question kind, a function
-in `questions.py`, a figure builder in `FIGURES` and its renderer in `web/app.js`.
+`checks/<name>.py` with a `run` of the shared signature and a `Concept` named `EXPLAIN`, and name both in `checks/`;
+to add a question kind, a function in `questions.py` with its `Concept` in `EXPLAIN`, a figure builder in `FIGURES`
+and its renderer in `web/app.js`. The test fails when a kind has no explanation.

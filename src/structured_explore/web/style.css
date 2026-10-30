@@ -150,3 +150,47 @@ svg text { fill: var(--ink-2); }
 .card dd { margin: 0.2rem 0 0; max-width: var(--measure); color: var(--ink-2); }
 .card dt:target { background: var(--blue-soft); padding: 0.2rem 0.4rem; border-radius: 4px; }
 .foot { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+
+/* Anything that can be explained: a dotted underline and a help cursor, one look everywhere. */
+.term { text-decoration: underline dotted var(--ink-3); text-underline-offset: 3px; cursor: help; }
+.term:hover { text-decoration-color: var(--blue); color: var(--blue); }
+button.term { border: 0; background: none; padding: 0; font: inherit; color: inherit; }
+h2 .term, h3 .term { text-decoration: none; }
+.help { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; margin-left: 0.4rem;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); font: 600 0.72rem var(--sans);
+  cursor: help; vertical-align: middle; padding: 0; }
+.help:hover { color: var(--blue); border-color: var(--blue); background: var(--surface); }
+figure { cursor: help; }
+figure:hover figcaption { color: var(--blue); }
+
+/* The explainer pane */
+.pane { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: #fff; border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px rgba(0,0,0,0.06); transform: translateX(100%); transition: transform 0.18s ease-out; overflow-y: auto;
+  padding: 1.2rem 1.4rem 2rem; z-index: 10; }
+.pane.open { transform: none; }
+.pane .bar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
+.pane .bar .kicker { margin: 0; flex: 1; }
+.pane .bar button { padding: 0.2rem 0.6rem; }
+.pane h2 { border: 0; margin: 0; padding: 0; font-size: 1.25rem; }
+.pane .look { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); background: var(--surface-2); padding: 0.4rem 0.6rem; border-radius: 5px; margin: 0.6rem 0 0; white-space: pre-wrap; }
+.pane h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin: 1.2rem 0 0.2rem; font-weight: 600; }
+.pane p { margin: 0.2rem 0; font-size: 0.95rem; }
+.pane .here { border-left: 3px solid var(--blue); padding: 0.4rem 0.8rem; background: var(--surface-2); border-radius: 0 6px 6px 0; margin-top: 0.4rem; font-size: 0.92rem; }
+.pane .here code { background: #fff; }
+.pane .see { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.pane .see button { font-size: 0.8rem; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.pane .draw { margin: 0.6rem 0 0; }
+.pane .draw svg { display: block; max-width: 100%; height: auto; font-family: var(--mono); font-size: 10px; }
+.pane .draw svg text { fill: var(--ink-2); }
+.pane .index { list-style: none; padding: 0; margin: 0.4rem 0 0; }
+.pane .index li { padding: 0.35rem 0; border-bottom: 1px solid var(--line); }
+.pane .index button { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left; }
+.pane .index button:hover { color: var(--blue); }
+.pane .index .small { display: block; }
+.pane .group { margin-top: 1rem; }
+body.pane-open main { padding-right: 0; }
+@media (min-width: 1500px) { body.pane-open .layout { margin-right: 420px; } }
+
+/* The statement's terms stay clean; the underline shows on hover only. */
+.statement .term { text-decoration: none; }
+.statement .term:hover { text-decoration: underline dotted var(--blue); }

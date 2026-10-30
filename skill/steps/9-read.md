@@ -1,7 +1,7 @@
 # 9. Read
 
-Build and read the page top to bottom, with its "How to read" card; every chip links to its line there. For each
-question:
+Build and read the page top to bottom. Anything not understood is clicked: a chip, a figure, a term, the `?` by a
+heading; the pane on the right explains it with this page's numbers. For each question:
 
 1. The count, n of N: is N the denominator meant? A conditional's N is the outcomes in B.
 2. The interval: wide means few outcomes, not a weak relation.

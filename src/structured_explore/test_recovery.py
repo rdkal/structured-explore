@@ -98,7 +98,7 @@ def test_collider(answers):
 def test_page(answers):
     out = answers[1]
     html = (out / "index.html").read_text()
-    assert '"how_to_read"' in html and "P(y | x) = 0." in html and "/*DATA*/" not in html
+    assert '"concepts"' in html and "P(y | x) = 0." in html and "/*DATA*/" not in html
     assert (out / "style.css").exists() and (out / "app.js").exists() and (out / "explore.json").exists()
 
 
@@ -128,3 +128,15 @@ questions: [{kind: marginal, event: e}]
                                            "questions: [{kind: marginal, event: nope}]\n")
     with pytest.raises(ValueError):
         load(tmp_path / "explore.yaml")
+
+
+def test_every_kind_is_explained():
+    from structured_explore import concepts, figures, nulls, questions
+    from structured_explore.checks import CHECKS
+    ids = {c.id for c in concepts.all()}
+    assert len(ids) == len(concepts.all())
+    for kind in [*questions.QUESTIONS, *nulls.NULLS, *CHECKS, *{f.__name__ for f in figures.FIGURES.values()}, "lineup"]:
+        assert kind in ids, kind
+    for c in concepts.all():
+        for s in c.see:
+            assert s in ids, (c.id, s)

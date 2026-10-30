@@ -5,7 +5,7 @@ import json
 import shutil
 from pathlib import Path
 
-from structured_explore import grammar
+from structured_explore import concepts, grammar
 from structured_explore.events import Events
 from structured_explore.results import Answer
 from structured_explore.space import Observation
@@ -34,7 +34,7 @@ def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: E
                    for e in spec.events],
         "answers": [a.to_dict() | {"caption": grammar.caption(a), "heading": grammar.heading(a.question),
                                    "name": grammar.name(a.question)} for a in answers],
-        "how_to_read": [{"id": i, "look": look, "means": means} for i, look, means in grammar.HOW_TO_READ],
+        "concepts": [concepts.to_dict(c) for c in concepts.all()],
     }
 
 

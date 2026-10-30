@@ -22,3 +22,4 @@ Check = Callable[[str, np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | N
 from structured_explore.checks import split_half  # noqa: E402
 
 CHECKS: dict[str, Check] = {"split_half": split_half.run}
+EXPLAIN = {"split_half": split_half.EXPLAIN}

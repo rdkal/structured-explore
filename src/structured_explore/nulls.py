@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from structured_explore.concepts_base import Concept
 from structured_explore.questions import QUESTIONS
 
 K = 200
@@ -43,3 +44,20 @@ def shuffled(A: np.ndarray, defined: np.ndarray, rng: np.random.Generator) -> np
 
 
 NULLS: dict[str, Null] = {"shuffle": shuffle}
+
+EXPLAIN = {
+    "shuffle": Concept(
+        "shuffle", "The null: shuffle",
+        "What the answer would be if A had nothing to do with B: the reference every joint and conditional is held "
+        "against.",
+        "Take A's values, true or false per outcome, and deal them out over the outcomes again at random, so each "
+        "outcome keeps its B but gets someone else's A. Ask the question of this shuffled Ω. Do it 200 times. The "
+        "band is where the middle 95 % of those answers fell.",
+        "The chip says outside or inside, and the band is shaded on the spine plot. Outside: an answer this far from "
+        "the shuffled ones is not what chance makes with this many outcomes, so B tells you something about A. "
+        "Inside: this much could be chance.",
+        "Outside is not a cause, and not a size: with enough outcomes a tiny difference is outside. Read the "
+        "difference from the marginal too. The shuffle treats outcomes as exchangeable; outcomes in time are not "
+        "quite, so the band is a little too narrow.",
+        look="null (shuffle): 0.20–0.22, answer outside", see=["conditional", "lineup", "split_half"]),
+}

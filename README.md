@@ -27,6 +27,15 @@ uvx --from git+https://github.com/rdkal/structured-explore structured-explore bu
 `style.css` and `app.js` into the output folder, and prints each answer's line. The page draws itself from the JSON
 inlined in it, so it needs no server.
 
+## Learning as you read
+
+Anything on the page a reader may not know can be clicked: a chip, a figure, a column header, a word with a dotted
+underline, the `?` beside a heading. A pane opens on the right with the same four parts every time: what it is, how it
+is worked out, how to read it, and what it does not tell you, with this page's own numbers filled in and a drawing for
+the ones that need it (the spine plot's anatomy, the shuffle, the split by days, which cells a question counts). The
+explanations live beside the code they explain: every question kind, null, check and figure carries its own `Concept`,
+and a test fails when one is missing. "Explain anything" in the contents opens the index of them all.
+
 ## The skill
 
 `skill/` is a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that walks a user through the nine
@@ -76,8 +85,9 @@ Events and `where` clauses are DuckDB SQL over the columns of Ω: the variables 
 
 Every part is a registry keyed by name in `src/structured_explore/`: question kinds in `questions.QUESTIONS`, nulls in
 `nulls.NULLS`, stability checks in `checks.CHECKS` (one module each), figures in `figures.FIGURES` with their renderers
-in `web/app.js`, and the caption's clauses in `grammar.PARTS` with the reading card in `grammar.HOW_TO_READ`. Add a
-kind with one function and one entry; remove it by deleting them.
+in `web/app.js`, and the caption's clauses in `grammar.PARTS`. Each registry's `EXPLAIN` holds its kinds' concepts, the
+general ones are in `concepts.py`. Add a kind with one function, one entry and one `Concept`; remove it by deleting
+them.
 
 The grammar is tested against planted answers: `test_recovery.py` simulates a sample space with an effect, a nothing,
 a Simpson reversal and a collider, and the build must say so.
