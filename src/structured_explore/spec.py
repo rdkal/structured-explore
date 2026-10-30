@@ -25,7 +25,8 @@ class Variable:
 class SampleSpace:
     # What one outcome ω is, in words: "one order placed in 2025".
     outcome: str
-    # The table, relative to the data root, and the SQL that picks its rows.
+    # The table, a Parquet, CSV or JSON file relative to the data root, or a SQL query that makes one row per outcome
+    # from such files, and the SQL that picks its rows.
     source: str
     where: str = "true"
     # How an outcome gets into the table: the selection, and what is dropped.

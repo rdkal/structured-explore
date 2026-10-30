@@ -80,6 +80,7 @@ checks: [split_half]
 ```
 
 Events and `where` clauses are DuckDB SQL over the columns of Ω: the variables by their alias, plus `time` and `day`.
+A `source` is a Parquet, CSV or JSON file, or a SQL query that makes one row per outcome when no file has that shape.
 
 ## Extend
 

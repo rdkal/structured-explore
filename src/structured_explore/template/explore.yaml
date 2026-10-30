@@ -7,7 +7,7 @@ home: /
 
 sample_space:
   outcome: <what one row is, as a thing in the world>
-  source: <table, relative to the data root, e.g. datasets/x/x.parquet>
+  source: <table, relative to the data root, e.g. datasets/x/x.parquet; or a SQL query making one row per outcome>
   where: <sql picking the rows that are outcomes>
   entry: >-
     <how a row gets in, what is dropped>

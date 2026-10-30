@@ -14,16 +14,23 @@ def _select(variables: list[Variable], prefix: str) -> list[str]:
     return [f"{prefix}.{v.name} as {v.column}" for v in variables]
 
 
+def table(source: str) -> str:
+    """A source as SQL can read it: a file by its path, or a query of its own in parentheses."""
+    if source.strip().lower().endswith((".parquet", ".csv", ".json")):
+        return f"'{source}'"
+    return f"({source})"
+
+
 def build(con: duckdb.DuckDBPyConnection, spec: Spec) -> None:
     """Create the view omega: the source's rows under where, with each join's variables beside them. A join is left,
     so it never drops an outcome: a variable it does not have is null, and the observation check shows it."""
     s = spec.sample_space
     columns = [f"s.{s.time} as time", day_sql(spec) + " as day"] if s.time else []
     columns += _select(s.variables, "s")
-    sql = f"from (select * from '{s.source}' where {s.where}) s"
+    sql = f"from (select * from {table(s.source)} where {s.where}) s"
     for j in spec.joins:
         columns += _select(j.variables, j.name)
-        sql += (f" left join (select {j.key}, {', '.join(v.name for v in j.variables)} from '{j.source}'"
+        sql += (f" left join (select {j.key}, {', '.join(v.name for v in j.variables)} from {table(j.source)}"
                 f" where {j.where}) {j.name} on s.{j.key} = {j.name}.{j.key}")
     con.execute(f"create or replace view omega as select {', '.join(columns)} {sql}")
 

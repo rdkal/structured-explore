@@ -140,3 +140,15 @@ def test_every_kind_is_explained():
     for c in concepts.all():
         for s in c.see:
             assert s in ids, (c.id, s)
+
+
+def test_sql_source(tmp_path):
+    import duckdb
+    from structured_explore import space
+    from structured_explore.spec import SampleSpace, Spec, Variable
+    con = duckdb.connect()
+    con.execute(f"copy (select * from (values ('a', 1), ('a', 2), ('b', 5)) t(k, v)) to '{tmp_path}/t.parquet'")
+    sql = f"select k, sum(v) as v from '{tmp_path}/t.parquet' group by k"
+    spec = Spec("t", "p", SampleSpace("one key", sql, variables=[Variable("v", "sum")]))
+    space.build(con, spec)
+    assert con.execute("select count(*), max(v) from omega").fetchone() == (2, 5)
