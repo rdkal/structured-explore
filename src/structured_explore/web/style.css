@@ -1,54 +1,51 @@
-/* The page's look. Tokens first, then layout, then each piece. Prose in the system sans; every variable, event,
-   statement and number in the mono, so a programmer's eye finds them. */
+/* The page's look: a document. Prose in the system sans, every variable, expression, statement and number in the
+   mono. Four sections, each to be taken in at a glance; detail behind disclosures; colour only where it means
+   something. Tokens first, then layout, then each piece. */
 
 :root {
   --ink: #1a1a19;
   --ink-2: #52514e;
   --ink-3: #8a8984;
-  --surface: #fcfcfb;
-  --surface-2: #f3f2ef;
+  --surface: #fff;
+  --surface-2: #f4f3f0;
   --line: #e4e3df;
   --blue: #2a78d6;
   --blue-soft: #cde2fb;
   --grey-mark: #d9d8d4;
   --good: #0a7a0a;
-  --good-soft: #e3f4e3;
   --warn: #8a5a00;
-  --warn-soft: #fff1d6;
   --bad: #b32e2e;
-  --bad-soft: #fbe3e3;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --measure: 70ch;
+  --measure: 72ch;
 }
 
 * { box-sizing: border-box; }
 html { font-size: 16px; }
-body {
-  margin: 0; background: var(--surface); color: var(--ink);
-  font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased;
-}
+body { margin: 0; background: var(--surface); color: var(--ink); font-family: var(--sans); line-height: 1.55; -webkit-font-smoothing: antialiased; }
 a { color: var(--blue); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code, pre, .mono { font-family: var(--mono); font-size: 0.92em; }
-code { background: var(--surface-2); padding: 0.05em 0.3em; border-radius: 3px; }
-h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
-h1 { font-size: 1.9rem; }
-h2 { font-size: 1.3rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-h3 { font-size: 1.1rem; }
-p { max-width: var(--measure); margin: 0.6rem 0; }
+code { color: var(--ink); }
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; margin: 0; }
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.05rem; margin: 2.8rem 0 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--line); color: var(--ink); }
+h2 .n { color: var(--ink-3); font-weight: 400; margin-left: 0.5rem; font-size: 0.9rem; }
+p { max-width: var(--measure); margin: 0.5rem 0; }
 small, .small { font-size: 0.85rem; color: var(--ink-2); }
+.muted { color: var(--ink-3); }
 
-/* Layout: a sticky table of contents beside the content. */
-.layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 2.5rem; max-width: 1200px; padding: 1.5rem; margin: 0 auto; }
-.toc { position: sticky; top: 1rem; align-self: start; font-size: 0.9rem; }
-.toc ol { list-style: none; margin: 0.6rem 0 0; padding: 0; }
-.toc li { margin: 0.1rem 0; }
-.toc a { display: block; color: var(--ink-2); padding: 0.15rem 0.5rem; border-left: 2px solid transparent; border-radius: 0 3px 3px 0; }
-.toc a:hover { color: var(--ink); background: var(--surface-2); text-decoration: none; }
-.toc a.current { color: var(--ink); border-left-color: var(--blue); }
-.toc .sub a { padding-left: 1.3rem; font-family: var(--mono); font-size: 0.8rem; }
-.toc .home { color: var(--ink-3); }
+/* Layout: a quiet table of contents beside a single column of text. */
+.layout { display: grid; grid-template-columns: 180px minmax(0, 880px); gap: 3rem; padding: 2rem 1.5rem 4rem; margin: 0 auto; max-width: 1160px; }
+.toc { position: sticky; top: 1.5rem; align-self: start; font-size: 0.85rem; }
+.toc ol { list-style: none; margin: 0.8rem 0 0; padding: 0; }
+.toc li { margin: 0; }
+.toc a { display: block; color: var(--ink-3); padding: 0.15rem 0 0.15rem 0.6rem; border-left: 2px solid transparent; }
+.toc a:hover { color: var(--ink); text-decoration: none; }
+.toc a.current { color: var(--ink); border-left-color: var(--ink); }
+.toc .sub a { padding-left: 1.4rem; font-family: var(--mono); font-size: 0.72rem; }
+.toc .home { color: var(--ink-3); padding-left: 0; border: 0; }
+.toc .explain { margin-top: 1.2rem; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
   .toc { position: static; }
@@ -56,129 +53,130 @@ small, .small { font-size: 0.85rem; color: var(--ink-2); }
 }
 
 /* Header */
-.kicker { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin: 0 0 0.4rem; }
-.lede { font-size: 1.1rem; color: var(--ink-2); margin-top: 0.8rem; }
-.meta { font-family: var(--mono); font-size: 0.85rem; color: var(--ink-2); }
+.kicker { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); margin: 0 0 0.5rem; }
+.lede { font-size: 1.05rem; color: var(--ink-2); margin-top: 0.8rem; }
+.meta { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); margin-top: 0.8rem; }
 .meta b { color: var(--ink); font-weight: 600; }
 
-/* Definition rows */
-dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.4rem 1.2rem; margin: 1rem 0; max-width: 900px; }
-dl.facts dt { color: var(--ink-2); font-size: 0.9rem; padding-top: 0.1rem; }
-dl.facts dd { margin: 0; }
-
-/* Tables */
-table { border-collapse: collapse; font-size: 0.9rem; margin: 0.8rem 0; }
-th, td { text-align: left; padding: 0.4rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-weight: 600; color: var(--ink-2); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
-td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
-td code { background: none; padding: 0; }
-tr.gap td { background: var(--warn-soft); }
+/* Tables: ruled, left aligned words, right aligned numbers. */
+table { border-collapse: collapse; font-size: 0.88rem; margin: 0.6rem 0; width: 100%; }
+th, td { text-align: left; padding: 0.35rem 0.8rem 0.35rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-3); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.key { font-family: var(--mono); white-space: nowrap; }
+tr.gap td.key::after { content: " ▲"; color: var(--warn); font-size: 0.7em; }
 .raw-wrap { overflow-x: auto; }
-.raw-wrap table { font-family: var(--mono); font-size: 0.78rem; white-space: nowrap; }
+.raw-wrap table { font-family: var(--mono); font-size: 0.75rem; white-space: nowrap; width: auto; }
 .raw-wrap th { text-transform: none; letter-spacing: 0; }
 
 /* A share as a small bar beside its count */
 .share { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.share i { display: inline-block; width: 80px; height: 8px; background: var(--grey-mark); border-radius: 2px; position: relative; overflow: hidden; }
+.share i { display: inline-block; width: 64px; height: 6px; background: var(--grey-mark); border-radius: 1px; position: relative; overflow: hidden; }
 .share i::after { content: ""; position: absolute; inset: 0; width: var(--w); background: var(--blue); }
 
-/* Chips: one look for every status, icon and label, never colour alone */
-.chip { display: inline-flex; align-items: center; gap: 0.35em; padding: 0.15em 0.6em; border-radius: 999px;
-  font-size: 0.8rem; font-family: var(--mono); background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); white-space: nowrap; }
-a.chip:hover { text-decoration: none; border-color: var(--ink-3); }
-.chip.good { background: var(--good-soft); color: var(--good); border-color: transparent; }
-.chip.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
-.chip.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
-.chip.signal { background: var(--blue-soft); color: #1c4f8f; border-color: transparent; }
-.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin: 0.8rem 0; }
+/* Marks: a glyph and a word, in the mono, coloured only when it means something. */
+.mark { display: inline-flex; align-items: center; gap: 0.3em; font-family: var(--mono); font-size: 0.78rem; color: var(--ink-2); white-space: nowrap;
+  border: 0; background: none; padding: 0; cursor: help; }
+.mark:hover { color: var(--blue); }
+.mark.good { color: var(--good); }
+.mark.warn { color: var(--warn); }
+.mark.bad { color: var(--bad); }
+.mark.signal { color: var(--blue); }
+.marks { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; list-style: none; padding: 0; margin: 0.4rem 0 0; }
 
-/* Details */
-details { margin: 0.8rem 0; }
-summary { cursor: pointer; color: var(--blue); font-size: 0.9rem; list-style: none; }
+/* Facts: a word, then its value */
+dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.3rem 1.2rem; margin: 0.6rem 0; }
+dl.facts dt { color: var(--ink-3); font-size: 0.85rem; padding-top: 0.15rem; }
+dl.facts dd { margin: 0; }
+dl.facts code { white-space: pre-wrap; }
+
+/* Details and buttons */
+details { margin: 0.6rem 0; }
+summary { cursor: pointer; color: var(--ink-2); font-size: 0.85rem; list-style: none; }
+summary:hover { color: var(--blue); }
 summary::before { content: "▸ "; color: var(--ink-3); }
 details[open] > summary::before { content: "▾ "; }
 summary::-webkit-details-marker { display: none; }
-
-/* Buttons */
-button { font: inherit; font-size: 0.9rem; padding: 0.4rem 0.9rem; border-radius: 6px; border: 1px solid var(--line);
-  background: var(--surface); color: var(--ink); cursor: pointer; }
+button { font: inherit; font-size: 0.85rem; padding: 0.35rem 0.8rem; border-radius: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
 button:hover { background: var(--surface-2); }
-button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-button.primary:hover { background: #1f63b3; }
-button.quiet { border-color: transparent; color: var(--ink-2); }
-.toolbar { display: flex; gap: 0.6rem; align-items: center; margin: 1rem 0 0.5rem; flex-wrap: wrap; }
-.toolbar .small { margin-left: auto; }
+button.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+button.primary:hover { background: #000; }
+button.quiet { border-color: transparent; color: var(--ink-2); padding-left: 0; }
+.toolbar { display: flex; gap: 0.8rem; align-items: center; margin: 0 0 0.6rem; flex-wrap: wrap; }
 
-/* Question cards */
-.q { border: 1px solid var(--line); border-radius: 10px; padding: 1.2rem 1.4rem; margin: 1.2rem 0; background: #fff; max-width: 900px; }
-.q h3 { font-weight: 500; color: var(--ink-2); }
-.q h3 code { color: var(--ink); font-weight: 600; background: none; padding: 0; }
-.statement { font-family: var(--mono); margin: 0.9rem 0 0.2rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 1rem; font-variant-numeric: tabular-nums; }
-.statement .lhs { color: var(--ink-2); }
-.statement .p { font-size: 2rem; font-weight: 600; line-height: 1; }
-.statement .ci { color: var(--ink-2); }
-.statement .nn { color: var(--ink-2); }
-.record { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-3); white-space: pre-wrap; margin: 0.6rem 0 0; }
+/* Terms: anything the pane explains */
+.term { text-decoration: underline dotted var(--ink-3); text-underline-offset: 3px; cursor: help; }
+.term:hover { text-decoration-color: var(--blue); color: var(--blue); }
+button.term { border: 0; background: none; padding: 0; font: inherit; color: inherit; border-radius: 0; }
+.help { display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; height: 1.1rem; margin-left: 0.4rem; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); font: 600 0.65rem var(--sans); cursor: help; vertical-align: middle; padding: 0; }
+.help:hover { color: var(--blue); border-color: var(--blue); background: var(--surface); }
 
-/* Guess panel */
-.guess { background: var(--surface-2); border-radius: 8px; padding: 0.9rem 1rem; margin-top: 0.9rem; display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; align-items: center; }
-.guess label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: var(--ink-2); }
-.guess input { font: inherit; font-family: var(--mono); width: 5.5em; padding: 0.3rem 0.4rem; border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+/* The graph */
+.dag { margin: 0.4rem 0 0.8rem; }
+.dag svg { display: block; max-width: 100%; height: auto; font-family: var(--mono); font-size: 12px; }
+.dag .node rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; rx: 4; }
+.dag .node.derived rect { stroke-dasharray: 3 2; }
+.dag .node.alone rect { stroke: var(--ink-3); }
+.dag .node text { fill: var(--ink); }
+.dag .node { cursor: help; }
+.dag .node:hover rect { stroke: var(--blue); }
+.dag .edge { stroke: var(--ink-2); fill: none; stroke-width: 1.2; }
+.ind td.key { white-space: normal; }
+.verdict-holds { color: var(--good); }
+.verdict-fails { color: var(--bad); }
+.verdict-unclear, .verdict-untested { color: var(--ink-3); }
+
+/* Events: one line each */
+.events li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.3rem 1.5rem; padding: 0.45rem 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.events { list-style: none; padding: 0; margin: 0.4rem 0; }
+.events .meaning { grid-column: 1 / -1; font-size: 0.85rem; color: var(--ink-2); margin-top: -0.2rem; }
+.events .after { color: var(--warn); }
+
+/* Questions: a statement, its marks, a figure. */
+.q { padding: 1.4rem 0 1.2rem; border-bottom: 1px solid var(--line); }
+.q:last-of-type { border-bottom: 0; }
+.statement { font-family: var(--mono); margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.8rem; font-variant-numeric: tabular-nums; font-size: 1rem; }
+.statement .lhs { color: var(--ink); }
+.statement .p { font-size: 1.6rem; font-weight: 600; line-height: 1; color: var(--ink); }
+.statement .ci, .statement .nn { color: var(--ink-2); font-size: 0.9rem; }
+.statement .term { text-decoration: none; }
+.statement .term:hover { text-decoration: underline dotted var(--blue); }
+.q .why { font-size: 0.85rem; color: var(--ink-2); margin: 0.2rem 0 0; }
+.record { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-3); white-space: pre-wrap; margin: 0.4rem 0 0; }
+.guess { background: var(--surface-2); border-radius: 6px; padding: 0.7rem 0.9rem; margin-top: 0.6rem; display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: center; font-size: 0.9rem; }
+.guess input { font: inherit; font-family: var(--mono); width: 5em; padding: 0.25rem 0.4rem; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 .guess .small { flex-basis: 100%; }
-
-/* Figures */
-figure { margin: 1rem 0 0; }
+figure { margin: 0.8rem 0 0; cursor: help; }
 figure svg { display: block; max-width: 100%; height: auto; font-family: var(--mono); font-size: 11px; }
-figcaption { font-size: 0.85rem; color: var(--ink-2); margin-top: 0.4rem; max-width: var(--measure); }
+figcaption { font-size: 0.8rem; color: var(--ink-3); margin-top: 0.3rem; max-width: var(--measure); }
+figure:hover figcaption { color: var(--blue); }
 svg .cell { stroke: var(--surface); stroke-width: 1; }
 svg .cell:hover { stroke: var(--ink); }
 svg .axis { stroke: var(--line); }
 svg text { fill: var(--ink-2); }
-
-/* Lineup */
-.lineup .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin-top: 0.6rem; }
-.lineup button.panel { padding: 0.3rem; border-radius: 6px; display: block; }
+.lineup .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; margin-top: 0.5rem; max-width: 640px; }
+.lineup button.panel { padding: 0.25rem; border-radius: 4px; display: block; }
 .lineup button.panel svg { width: 100%; height: auto; }
-.lineup button.panel .n { font-family: var(--mono); font-size: 0.75rem; color: var(--ink-3); }
-.lineup button.panel.right { border-color: var(--good); box-shadow: 0 0 0 2px var(--good-soft); }
-.lineup button.panel.wrong { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad-soft); }
-.lineup .verdict { margin-top: 0.6rem; font-size: 0.95rem; }
-@media (max-width: 600px) { .lineup .grid { grid-template-columns: repeat(4, 1fr); } }
-
-/* How to read */
-.card dt { font-family: var(--mono); font-size: 0.9rem; margin-top: 1rem; scroll-margin-top: 1rem; }
-.card dd { margin: 0.2rem 0 0; max-width: var(--measure); color: var(--ink-2); }
-.card dt:target { background: var(--blue-soft); padding: 0.2rem 0.4rem; border-radius: 4px; }
-.foot { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-
-/* Anything that can be explained: a dotted underline and a help cursor, one look everywhere. */
-.term { text-decoration: underline dotted var(--ink-3); text-underline-offset: 3px; cursor: help; }
-.term:hover { text-decoration-color: var(--blue); color: var(--blue); }
-button.term { border: 0; background: none; padding: 0; font: inherit; color: inherit; }
-h2 .term, h3 .term { text-decoration: none; }
-.help { display: inline-flex; align-items: center; justify-content: center; width: 1.25rem; height: 1.25rem; margin-left: 0.4rem;
-  border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-3); font: 600 0.72rem var(--sans);
-  cursor: help; vertical-align: middle; padding: 0; }
-.help:hover { color: var(--blue); border-color: var(--blue); background: var(--surface); }
-figure { cursor: help; }
-figure:hover figcaption { color: var(--blue); }
+.lineup button.panel .n { font-family: var(--mono); font-size: 0.7rem; color: var(--ink-3); }
+.lineup button.panel.right { border-color: var(--good); box-shadow: 0 0 0 2px #e3f4e3; }
+.lineup button.panel.wrong { border-color: var(--bad); box-shadow: 0 0 0 2px #fbe3e3; }
+.lineup .verdict { margin-top: 0.5rem; font-size: 0.9rem; }
 
 /* The explainer pane */
 .pane { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); background: #fff; border-left: 1px solid var(--line);
-  box-shadow: -8px 0 24px rgba(0,0,0,0.06); transform: translateX(100%); transition: transform 0.18s ease-out; overflow-y: auto;
-  padding: 1.2rem 1.4rem 2rem; z-index: 10; }
+  box-shadow: -8px 0 24px rgba(0,0,0,0.06); transform: translateX(100%); transition: transform 0.18s ease-out; overflow-y: auto; padding: 1.2rem 1.4rem 2rem; z-index: 10; }
 .pane.open { transform: none; }
 .pane .bar { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.8rem; }
 .pane .bar .kicker { margin: 0; flex: 1; }
 .pane .bar button { padding: 0.2rem 0.6rem; }
-.pane h2 { border: 0; margin: 0; padding: 0; font-size: 1.25rem; }
-.pane .look { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-2); background: var(--surface-2); padding: 0.4rem 0.6rem; border-radius: 5px; margin: 0.6rem 0 0; white-space: pre-wrap; }
-.pane h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin: 1.2rem 0 0.2rem; font-weight: 600; }
-.pane p { margin: 0.2rem 0; font-size: 0.95rem; }
-.pane .here { border-left: 3px solid var(--blue); padding: 0.4rem 0.8rem; background: var(--surface-2); border-radius: 0 6px 6px 0; margin-top: 0.4rem; font-size: 0.92rem; }
-.pane .here code { background: #fff; }
+.pane h2 { border: 0; margin: 0; padding: 0; font-size: 1.2rem; }
+.pane .look { font-family: var(--mono); font-size: 0.8rem; color: var(--ink-2); background: var(--surface-2); padding: 0.4rem 0.6rem; border-radius: 4px; margin: 0.6rem 0 0; white-space: pre-wrap; }
+.pane h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin: 1.2rem 0 0.2rem; font-weight: 600; }
+.pane p { margin: 0.2rem 0; font-size: 0.92rem; }
+.pane .here { border-left: 3px solid var(--blue); padding: 0.4rem 0.8rem; background: var(--surface-2); border-radius: 0 6px 6px 0; margin-top: 0.4rem; font-size: 0.9rem; }
 .pane .see { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
-.pane .see button { font-size: 0.8rem; padding: 0.15rem 0.6rem; border-radius: 999px; }
+.pane .see button { font-size: 0.78rem; padding: 0.15rem 0.6rem; border-radius: 999px; }
 .pane .draw { margin: 0.6rem 0 0; }
 .pane .draw svg { display: block; max-width: 100%; height: auto; font-family: var(--mono); font-size: 10px; }
 .pane .draw svg text { fill: var(--ink-2); }
@@ -188,9 +186,5 @@ figure:hover figcaption { color: var(--blue); }
 .pane .index button:hover { color: var(--blue); }
 .pane .index .small { display: block; }
 .pane .group { margin-top: 1rem; }
-body.pane-open main { padding-right: 0; }
 @media (min-width: 1500px) { body.pane-open .layout { margin-right: 420px; } }
-
-/* The statement's terms stay clean; the underline shows on hover only. */
-.statement .term { text-decoration: none; }
-.statement .term:hover { text-decoration: underline dotted var(--blue); }
+.foot { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }

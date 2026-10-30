@@ -8,7 +8,8 @@ description: Make a structured explore, a look at data as a sample space, events
 An explore whose whole content is one file, `explore.yaml`, built into a page by `structured-explore`
 (github.com/rdkal/structured-explore). The page says the same things in the same order every time, so the reader
 learns to scan it: what one outcome is, what is observed of it, the events, and each question as
-`P(A | B) = 0.42 [0.39, 0.45], 210 of 500` with its null, its stability and how the reader's guess fared.
+`P(returned_at is not null | discount_pct > 0) = 0.42 [0.39, 0.45], 210 of 500` with its null, its stability, where the
+given stands to the event in the graph, and how the reader's guess fared.
 
 The words are probability's. A **sample space** Ω is the set of outcomes; an **outcome** ω is one element, one row;
 a **variable** is a column, a function on Ω; an **event** is a subset of Ω, a boolean expression over the columns; a
@@ -31,9 +32,9 @@ explore does not need is left out of the yaml. Remove a step from this skill by 
 3. [Observation](steps/3-observation.md): build once, read "What is observed" and the raw rows, and fix the sample
    space until every variable is observed on the outcomes it should be.
 4. [Joins](steps/4-joins.md): add a table only to close a gap step 3 named.
-5. [Graph](steps/5-graph.md): which conditionings are allowed.
-6. [Events](steps/6-events.md): named boolean expressions, each with its meaning and whether it was named before
-   or after looking.
+5. [Graph](steps/5-graph.md): the arrows between the variables, whose implied independencies the page tests.
+6. [Events](steps/6-events.md): boolean expressions, each its own name, with its meaning and whether it was named
+   before or after looking.
 7. [Questions](steps/7-questions.md): marginal, joint and conditional, each with the reader's guess written first.
 8. [Checks](steps/8-checks.md): the stability checks to run, and the null.
 9. [Read](steps/9-read.md): build, read the page with its "How to read" card, and decide what to ask next.
@@ -72,6 +73,7 @@ one function and one entry, and removed by deleting them:
 | question kinds | `questions.py` | `QUESTIONS` |
 | the null | `nulls.py` | `NULLS` |
 | stability checks | `checks/<name>.py` | `checks.CHECKS` |
+| the graph: d-separation, implied independencies, their tests, relations | `graph.py` | |
 | figures, as counts | `figures.py` | `FIGURES`, and the renderer of the same name in `web/app.js` |
 | captions | `grammar.py` | `PARTS` |
 | explanations, shown in the page's side pane | `concepts.py`, and `EXPLAIN` beside each registry | |

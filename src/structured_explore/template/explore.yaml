@@ -13,10 +13,15 @@ sample_space:
     <how a row gets in, what is dropped>
   time: <column ordering outcomes in time, a UTC timestamp>
   timezone: UTC
+  # Every variable is a column of Ω and a node of the graph. A derived one has an expr over the source's row.
   variables:
     - name: <column>
       meaning: <what it is, with its unit>
       observed: measured
+    # - name: hour
+    #   meaning: hour of day
+    #   observed: derived
+    #   expr: hour(<time column>)
 
 # joins:
 #   - name: <alias>
@@ -27,22 +32,27 @@ sample_space:
 #     variables:
 #       - {name: <column>, alias: <name in Ω>, meaning: <...>}
 
-graph: >-
-  <what may be conditioned on, and what the graph forbids>
+# The arrows between the variables, cause -> effect. A pair with no arrow is a claim of independence, which the
+# page tests.
+graph:
+  edges:
+    - <variable> -> <variable>
+  notes: >-
+    <what the arrows rest on, what is a root, what the graph leaves out>
 
+# An event is its where clause; a question names it by that clause.
 events:
-  - name: <event>
-    where: <sql boolean over Ω's columns>
+  - where: <sql boolean over Ω's columns>
     meaning: <in words>
     defined: before
 
 questions:
   - kind: marginal
-    event: <event>
+    event: <where>
     guess: [<lo>, <hi>]
   # - kind: conditional
-  #   event: <event>
-  #   given: <event>
+  #   event: <where>
+  #   given: <where>
   #   guess: [<lo>, <hi>]
   #   lineup: true
 

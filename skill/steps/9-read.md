@@ -6,6 +6,7 @@ heading; the pane on the right explains it with this page's numbers. For each qu
 1. The count, n of N: is N the denominator meant? A conditional's N is the outcomes in B.
 2. The interval: wide means few outcomes, not a weak relation.
 3. The null: outside means B tells you about A; inside means this much could be chance. Neither is a cause.
+   The graph mark says how to read it: upstream, downstream, common cause or unconnected.
 4. Stability: unstable means the answer moves between halves of the days. With many outcomes it says they are not
    independent draws and the interval is too narrow; with few, ask again on more days or not at all.
 5. The guess: a miss is the finding to write down, in the explore's words, with what the reader believed and why.

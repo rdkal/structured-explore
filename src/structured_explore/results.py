@@ -18,6 +18,8 @@ class Answer:
     # The figure's counts (figures.FIGURES) and the lineup's panels (figures.lineup).
     figure: dict | None = None
     lineup: dict | None = None
+    # How the given's variables stand to the event's in the graph (graph.relation), for a conditional.
+    relation: dict | None = None
 
     @property
     def guess_hit(self) -> bool | None:
@@ -35,5 +37,5 @@ class Answer:
             "null": {"name": self.band.name, "lo": self.band.lo, "hi": self.band.hi} if self.band else None,
             "checks": [{"name": c.name, "ok": c.ok, "text": c.text} for c in self.checks],
             "guess": q.guess, "guess_hit": self.guess_hit,
-            "figure": self.figure, "lineup": self.lineup,
+            "figure": self.figure, "lineup": self.lineup, "relation": self.relation,
         }

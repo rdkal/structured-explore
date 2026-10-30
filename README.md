@@ -5,13 +5,15 @@ where its rows come from, the events on that sample space, and the questions ask
 page that reads the same every time:
 
 ```
-P(returned | discounted) = 0.19 [0.17, 0.20], 420 of 2256; null (shuffle): 0.10–0.12, answer outside;
-stable across halves: yes (19 of 20 splits agree, halves range 0.16–0.21); guess was 0.05–0.15: miss
+P(returned_at is not null | discount_pct > 0) = 0.19 [0.17, 0.20], 420 of 2256; null (shuffle): 0.10–0.12,
+answer outside; stable across halves: yes (19 of 20 splits agree, halves range 0.16–0.21); guess was 0.05–0.15: miss
 ```
 
 Every answer is a count, n of N, with its interval; a joint or conditional answer is held against what it would be if
 the events had nothing to do with each other; the days are split in halves to see whether the answer holds; and the
 reader guesses before looking, on the page, so that over time the pages show whether they are teaching anything.
+The author draws the graph of what causes what among the variables; the page draws it, lists the independencies it
+implies, tests each on the data, and marks every conditional with where its given stands to its event in the graph.
 
 ## Use
 
@@ -26,6 +28,14 @@ uvx --from git+https://github.com/rdkal/structured-explore structured-explore bu
 `init` writes a template `explore.yaml` and a `Makefile`. `build` writes `index.html`, `explore.json` and the page's
 `style.css` and `app.js` into the output folder, and prints each answer's line. The page draws itself from the JSON
 inlined in it, so it needs no server.
+
+## The graph
+
+`graph.edges` are the author's arrows, cause -> effect, between the variables. The page draws them, and for every two
+variables with no arrow it finds the smallest set that d-separates them, tests that independence on the data by
+partial rank correlation, and says holds, fails or unclear. Each conditional answer is marked with where its given
+stands to its event in the graph: upstream, downstream, a common cause only, or unconnected. A fail is a missing arrow;
+an outside-the-null answer between unconnected variables is a missing path. The graph is tested, never confirmed.
 
 ## Learning as you read
 
@@ -60,6 +70,7 @@ sample_space:
   timezone: Europe/Berlin        # whose days the split-half check deals out
   variables:
     - {name: discount_pct, meaning: the discount on the order, percent of list price}
+    - {name: weekday, meaning: day of the week placed, observed: derived, expr: dayofweek(placed_at)}
 joins:
   - name: r
     source: validated/shop/returns.parquet
@@ -67,25 +78,29 @@ joins:
     closes: whether the order came back is not in the orders table
     variables:
       - {name: returned_at, meaning: when the return was booked, null when it never was}
-graph: The discount is set before the order, a return comes after it; nothing in the data causes the weekday.
+graph:
+  edges: [weekday -> discount_pct, discount_pct -> returned_at]
+  notes: the discount is set before the order, a return comes after it; nothing in the data causes the weekday
 events:
-  - {name: returned, where: returned_at is not null, meaning: the order came back, defined: before}
-  - {name: discounted, where: discount_pct > 0, meaning: sold under list price, defined: before}
-  - {name: weekend, where: dayofweek(day) in (0, 6), meaning: placed on a Saturday or Sunday, defined: before}
+  - {where: returned_at is not null, meaning: the order came back, defined: before}
+  - {where: discount_pct > 0, meaning: sold under list price, defined: before}
+  - {where: weekday in (0, 6), meaning: placed on a Saturday or Sunday, defined: before}
 questions:
-  - {kind: marginal, event: returned, guess: [0.05, 0.15]}
-  - {kind: conditional, event: returned, given: discounted, lineup: true}
+  - {kind: marginal, event: returned_at is not null, guess: [0.05, 0.15]}
+  - {kind: conditional, event: returned_at is not null, given: discount_pct > 0, lineup: true}
 null: shuffle
 checks: [split_half]
 ```
 
-Events and `where` clauses are DuckDB SQL over the columns of Ω: the variables by their alias, plus `time` and `day`.
+Events are DuckDB SQL over the columns of Ω, the variables by their names there plus `time` and `day`, and a question names
+an event by that SQL. Every variable is a node of the graph; a derived one is computed by its `expr`.
 A `source` is a Parquet, CSV or JSON file, or a SQL query that makes one row per outcome when no file has that shape.
 
 ## Extend
 
 Every part is a registry keyed by name in `src/structured_explore/`: question kinds in `questions.QUESTIONS`, nulls in
-`nulls.NULLS`, stability checks in `checks.CHECKS` (one module each), figures in `figures.FIGURES` with their renderers
+`nulls.NULLS`, stability checks in `checks.CHECKS` (one module each), the graph's reasoning in `graph.py`, figures in
+`figures.FIGURES` with their renderers
 in `web/app.js`, and the caption's clauses in `grammar.PARTS`. Each registry's `EXPLAIN` holds its kinds' concepts, the
 general ones are in `concepts.py`. Add a kind with one function, one entry and one `Concept`; remove it by deleting
 them.

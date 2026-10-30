@@ -12,7 +12,7 @@ from pathlib import Path
 import duckdb
 import numpy as np
 
-from structured_explore import events, figures, page, space
+from structured_explore import events, figures, graph, page, space
 from structured_explore.checks import CHECKS
 from structured_explore.nulls import NULLS
 from structured_explore.questions import QUESTIONS, WITH_NULL
@@ -28,6 +28,11 @@ def build(spec: Spec, out: Path, con: duckdb.DuckDBPyConnection | None = None, s
     obs = space.observation(con, spec)
     raw = space.raw_rows(con)
     ev = events.evaluate(con, spec)
+    columns = [v.column for v in spec.variables]
+    independencies = []
+    if spec.graph:
+        arrays = space.numeric(con, columns)
+        independencies = [graph.test(arrays, x, y, z) for x, y, z in graph.implied(spec.graph, columns)]
     rng = np.random.default_rng(seed)
     answers = []
     for q in spec.questions:
@@ -48,8 +53,11 @@ def build(spec: Spec, out: Path, con: duckdb.DuckDBPyConnection | None = None, s
         a.figure = figures.FIGURES[q.kind](A, B, defined, a.count, a.band)
         if q.lineup and B is not None:
             a.lineup = figures.lineup(A, B, defined, rng)
+        if spec.graph and q.given:
+            a.relation = graph.relation(spec.graph, graph.variables_in(q.event, columns),
+                                        graph.variables_in(q.given, columns))
         answers.append(a)
-    page.write(out, page.data(spec, obs, raw, ev, answers))
+    page.write(out, page.data(spec, obs, raw, ev, answers, independencies))
     return answers
 
 

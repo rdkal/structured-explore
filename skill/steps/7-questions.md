@@ -1,6 +1,6 @@
 # 7. Questions
 
-A question is asked of registered events only:
+A question is asked of registered events only, named by their where clauses:
 
 - `marginal`: P(A), how often A, over every outcome.
 - `joint`: P(A and B), how often both, over every outcome.

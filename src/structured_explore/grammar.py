@@ -22,11 +22,12 @@ def name(q: Question) -> str:
 
 
 def heading(q: Question) -> str:
+    """The question in words, for the terminal and the record; the page shows the statement itself."""
     if q.kind == "marginal":
-        return f"How often {q.event}?"
+        return f"How often is {q.event}?"
     if q.kind == "joint":
-        return f"How often {q.event} and {q.given} together?"
-    return f"Given {q.given}, how often {q.event}?"
+        return f"How often are {q.event} and {q.given} both?"
+    return f"Among {q.given}, how often is {q.event}?"
 
 
 def count_part(a: Answer) -> str:

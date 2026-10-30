@@ -1,12 +1,13 @@
-// Draws the page from the JSON page.py inlined. One function per section; one renderer per figure kind in FIGURES,
-// keyed like figures.FIGURES in Python. Anything the reader may not know is a term: click it and the pane on the
-// right explains it (concepts.py), with this page's numbers and a drawing where one helps. The reader's guesses and
-// lineup picks live in localStorage, per page.
+// Draws the page from the JSON page.py inlined: a document in four sections, Data, Graph, Events, Questions. One
+// renderer per figure kind in FIGURES, keyed like figures.FIGURES in Python. Anything the reader may not know is a
+// term or a mark: click it and the pane on the right explains it (concepts.py), with this page's numbers and a
+// drawing where one helps. The reader's guesses and lineup picks live in localStorage, per page.
 
 const data = JSON.parse(document.getElementById("data").textContent);
 document.title = data.title;
 const KEY = `structured-explore:${location.pathname}`;
 const CONCEPTS = Object.fromEntries(data.concepts.map((c) => [c.id, c]));
+const VARS = Object.fromEntries(data.variables.map((v) => [v.column, v]));
 
 // --- helpers ---------------------------------------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ function h(tag, attrs = {}, ...children) {
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? "" : v);
   }
-  for (const c of children.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+  for (const c of children.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
   return el;
 }
 const svgNS = "http://www.w3.org/2000/svg";
@@ -31,10 +32,10 @@ function s(tag, attrs = {}, ...children) {
 const code = (t) => h("code", {}, t);
 const f2 = (x) => (x == null || Number.isNaN(x) ? "–" : x.toFixed(2));
 const ofN = (n, N) => `${n} of ${N}`;
+const notOf = (w) => (/\s/.test(w) ? `not (${w})` : `not ${w}`);
 function share(n, N) {
   return h("span", { class: "share" }, h("i", { style: `--w:${N ? (100 * n) / N : 0}%` }), ofN(n, N));
 }
-// A word the pane can explain.
 function term(text, id, ctx) {
   if (!CONCEPTS[id]) return h("span", {}, text);
   return h("button", { class: "term", type: "button", title: CONCEPTS[id].what, onclick: () => openPane(id, ctx) }, text);
@@ -43,8 +44,8 @@ function help(id, ctx) {
   return h("button", { class: "help", type: "button", title: `What is this? ${CONCEPTS[id] ? CONCEPTS[id].title : id}`,
     "aria-label": "explain", onclick: (e) => { e.stopPropagation(); openPane(id, ctx); } }, "?");
 }
-function chip(cls, text, id, ctx) {
-  return h("button", { class: `chip ${cls}`, type: "button", title: CONCEPTS[id] ? CONCEPTS[id].what : null, onclick: () => openPane(id, ctx) }, text);
+function mark(cls, text, id, ctx) {
+  return h("button", { class: `mark ${cls}`, type: "button", title: CONCEPTS[id] ? CONCEPTS[id].what : null, onclick: () => openPane(id, ctx) }, text);
 }
 const store = {
   get: (k) => { try { return JSON.parse(localStorage.getItem(`${KEY}:${k}`)); } catch { return null; } },
@@ -56,7 +57,7 @@ const store = {
 
 const FIGURES = {
   bar(fig, a) {
-    const W = 420, H = 70, L = 10, R = 10, y = 28, bh = 18;
+    const W = 420, H = 64, L = 10, R = 10, y = 22, bh = 16;
     const x = (p) => L + p * (W - L - R);
     const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
     svg.append(s("rect", { x: x(0), y, width: W - L - R, height: bh, fill: "var(--grey-mark)", rx: 2 }));
@@ -73,13 +74,13 @@ const FIGURES = {
   },
   spine(fig, a, opts = {}) {
     const small = opts.small;
-    const W = small ? 120 : 420, H = small ? 90 : 300;
-    const L = small ? 0 : 38, R = small ? 0 : 10, T = small ? 0 : 10, B = small ? 0 : 44;
+    const W = small ? 120 : 420, H = small ? 90 : 230;
+    const L = small ? 0 : 36, R = small ? 0 : 10, T = small ? 0 : 8, B = small ? 0 : 40;
     const pw = W - L - R, ph = H - T - B, gap = small ? 1 : 3;
     const N = fig.nB + fig.nNotB;
     const cols = [
       { label: a.given, n: fig.nB, nA: fig.nAB },
-      { label: `not ${a.given}`, n: fig.nNotB, nA: fig.nAnotB },
+      { label: notOf(a.given), n: fig.nNotB, nA: fig.nAnotB },
     ];
     const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
     let x = L;
@@ -89,10 +90,11 @@ const FIGURES = {
       const top = s("rect", { class: "cell", x, y: T, width: Math.max(w - gap, 0), height: ph - hA, fill: "var(--grey-mark)" });
       const bot = s("rect", { class: "cell", x, y: T + ph - hA, width: Math.max(w - gap, 0), height: hA, fill: "var(--blue)" });
       if (!small) {
-        top.append(s("title", {}, `not ${a.event} and ${c.label}: ${ofN(c.n - c.nA, c.n)} (${f2(1 - p)})`));
+        top.append(s("title", {}, `${notOf(a.event)} and ${c.label}: ${ofN(c.n - c.nA, c.n)} (${f2(1 - p)})`));
         bot.append(s("title", {}, `${a.event} and ${c.label}: ${ofN(c.nA, c.n)} (${f2(p)})`));
-        svg.append(s("text", { x: x + w / 2, y: T + ph + 16, "text-anchor": "middle" }, c.label));
-        svg.append(s("text", { x: x + w / 2, y: T + ph + 30, "text-anchor": "middle", fill: "var(--ink-3)" }, c.n));
+        const label = c.label.length * 6.6 > w ? c.label.slice(0, Math.max(Math.floor(w / 6.6) - 1, 3)) + "…" : c.label;
+        svg.append(s("text", { x: x + w / 2, y: T + ph + 15, "text-anchor": "middle" }, label));
+        svg.append(s("text", { x: x + w / 2, y: T + ph + 29, "text-anchor": "middle", fill: "var(--ink-3)" }, c.n));
       }
       svg.append(top, bot);
       x += w;
@@ -111,7 +113,6 @@ const FIGURES = {
         svg.append(s("line", { class: "axis", x1: L - 4, x2: L, y1: y, y2: y }));
         svg.append(s("text", { x: L - 7, y: y + 4, "text-anchor": "end" }, t.toFixed(1)));
       }
-      svg.append(s("text", { x: L - 30, y: T + ph / 2, transform: `rotate(-90 ${L - 30} ${T + ph / 2})`, "text-anchor": "middle" }, `share in ${a.event}`));
     }
     return svg;
   },
@@ -119,8 +120,79 @@ const FIGURES = {
 FIGURES.conditional = FIGURES.spine;
 
 function legend(a) {
-  if (a.figure.kind === "bar") return `Share of outcomes in ${a.event}; the whisker is the interval. Click the figure for how to read it.`;
-  return `Columns ${a.given} and not ${a.given}, as wide as their share; blue is ${a.event}. Dashed: P(${a.event}) over all outcomes. Band: the null. Click the figure for how to read it.`;
+  if (a.figure.kind === "bar") return `Share of outcomes where ${a.event}; the whisker is the interval.`;
+  return `Columns: ${a.given} and not, as wide as their share. Blue: ${a.event}. Dashed: over all outcomes. Band: the null.`;
+}
+
+// --- the graph ---------------------------------------------------------------------------------------------------
+
+function dag(g) {
+  const nodes = data.variables.map((v) => v.column);
+  const parents = (n) => g.edges.filter(([, b]) => b === n).map(([a]) => a);
+  const touched = new Set(g.edges.flat());
+  const layer = {};
+  const depth = (n, seen = new Set()) => {
+    if (layer[n] != null) return layer[n];
+    if (seen.has(n)) return 0;
+    seen.add(n);
+    const ps = parents(n);
+    layer[n] = ps.length ? 1 + Math.max(...ps.map((p) => depth(p, seen))) : 0;
+    return layer[n];
+  };
+  const linked = nodes.filter((n) => touched.has(n)), alone = nodes.filter((n) => !touched.has(n));
+  linked.forEach((n) => depth(n));
+  const layers = [];
+  for (const n of linked) (layers[layer[n]] ||= []).push(n);
+  const width = (n) => n.length * 7.4 + 22, rowH = 44, pad = 12;
+  const colX = [];
+  let x = pad;
+  layers.forEach((ns, i) => { colX[i] = x; x += Math.max(...ns.map(width)) + 70; });
+  const rows = Math.max(1, ...layers.map((l) => l.length));
+  const pos = {};
+  layers.forEach((ns, i) => ns.forEach((n, j) => { pos[n] = { x: colX[i], y: pad + (j + (rows - ns.length) / 2) * rowH, w: width(n) }; }));
+  const H = pad * 2 + rows * rowH + (alone.length ? rowH + 10 : 0);
+  const W = Math.max(x - 70 + pad, alone.reduce((a, n) => a + width(n) + 12, pad) + pad, 320);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
+  const defs = s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
+    s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "var(--ink-2)" })));
+  svg.append(defs);
+  for (const [a, b] of g.edges) {
+    const A = pos[a], B = pos[b];
+    const x1 = A.x + A.w, y1 = A.y + 14, x2 = B.x, y2 = B.y + 14, dx = Math.max((x2 - x1) / 2, 20);
+    svg.append(s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, "marker-end": "url(#arrow)" }));
+  }
+  const node = (n, p, cls) => {
+    const v = VARS[n];
+    const gEl = s("g", { class: `node ${cls} ${v && v.expr ? "derived" : ""}`, transform: `translate(${p.x} ${p.y})` });
+    gEl.append(s("rect", { width: p.w, height: 28 }), s("text", { x: p.w / 2, y: 18, "text-anchor": "middle" }, n));
+    gEl.append(s("title", {}, v ? `${n}: ${v.meaning} (${v.observed})` : n));
+    gEl.addEventListener("click", () => openPane("variable", { variable: v }));
+    return gEl;
+  };
+  for (const n of linked) svg.append(node(n, pos[n], ""));
+  let ax = pad;
+  const ay = pad + rows * rowH + 10;
+  if (alone.length) svg.append(s("text", { x: pad, y: ay - 2, fill: "var(--ink-3)", "font-size": 10 }, "no arrows:"));
+  for (const n of alone) { svg.append(node(n, { x: ax, y: ay + 4, w: width(n) }, "alone")); ax += width(n) + 12; }
+  return svg;
+}
+
+const VERDICT = { holds: ["✓", "holds"], fails: ["✗", "fails"], unclear: ["~", "unclear"], untested: ["–", "untested"] };
+
+function independencies(g) {
+  if (!g.independencies.length) return h("p", { class: "small" }, "Every pair of variables has an arrow: the graph implies no independence to test.");
+  const rows = g.independencies.map((i) => {
+    const [glyph, word] = VERDICT[i.verdict];
+    return h("tr", { onclick: () => openPane("independence", { independence: i }), style: "cursor:help" },
+      h("td", { class: "key" }, `${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`),
+      h("td", { class: "num" }, i.r == null ? "–" : `${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}]`),
+      h("td", { class: "num" }, i.n || "–"),
+      h("td", { class: `num verdict-${i.verdict}` }, `${glyph} ${word}`));
+  });
+  const n = g.independencies.length, fails = g.independencies.filter((i) => i.verdict === "fails").length;
+  return h("details", { open: fails > 0 }, h("summary", {}, `${n} implied independencies, ${fails} fail`, fails ? "" : ": the data does not contradict the graph"),
+    h("table", { class: "ind" }, h("thead", {}, h("tr", {}, h("th", {}, term("implied", "independence")), h("th", { class: "num" }, "partial r"), h("th", { class: "num" }, "n"), h("th", { class: "num" }, "verdict"))),
+      h("tbody", {}, ...rows)));
 }
 
 // --- the pane: explanations, with this page's numbers and a drawing ---------------------------------------------
@@ -172,8 +244,9 @@ function openPane(id, ctx) {
 function openIndex() {
   paneStack = [];
   const groups = [
-    ["The sample space", ["sample-space", "outcome", "variable", "observed", "entry", "join", "undefined", "days"]],
-    ["Events and questions", ["event", "named", "marginal", "joint", "conditional", "graph"]],
+    ["The data", ["sample-space", "outcome", "variable", "observed", "entry", "join", "undefined", "days"]],
+    ["The graph", ["dag", "independence", "relation", "graph"]],
+    ["Events and questions", ["event", "named", "marginal", "joint", "conditional"]],
     ["Reading an answer", ["count", "interval", "shuffle", "split_half", "guess", "record"]],
     ["The figures", ["bar", "spine", "lineup"]],
   ];
@@ -181,7 +254,7 @@ function openIndex() {
   const rest = data.concepts.map((c) => c.id).filter((id) => !listed.has(id));
   if (rest.length) groups.push(["More", rest]);
   const content = [paneBar("Explained", null), h("h2", {}, "Every concept on this page"),
-    h("p", { class: "small" }, "Anything with a dotted underline, a chip, a figure or a ? can be clicked for its explanation.")];
+    h("p", { class: "small" }, "Anything with a dotted underline, a mark, a figure, a graph node or a ? can be clicked for its explanation.")];
   for (const [title, ids] of groups) {
     const ul = h("ul", { class: "index" });
     for (const id of ids) {
@@ -195,51 +268,55 @@ function openIndex() {
 }
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePane(); });
 
-// This page's numbers for a concept, from what was clicked.
 function here(id, ctx) {
   if (!ctx) return null;
-  const a = ctx.answer, v = ctx.variable, e = ctx.event;
+  const a = ctx.answer, v = ctx.variable, e = ctx.event, i = ctx.independence;
   if (a) {
-    const denom = a.kind === "conditional" ? `the ${a.N} outcomes in ${a.given}` : `all ${a.N} outcomes where it is defined`;
+    const denom = a.kind === "conditional" ? `the ${a.N} outcomes where ${a.given}` : `all ${a.N} outcomes where it is defined`;
     switch (id) {
       case "count": return h("p", {}, `P(${a.name}) = ${f2(a.p)}: `, code(ofN(a.n, a.N)), `, counted over ${denom}.`);
       case "interval": return h("p", {}, `[${f2(a.lo)}, ${f2(a.hi)}] around ${f2(a.p)}, from N = ${a.N}. The interval is ${f2(a.hi - a.lo)} wide.`);
-      case "marginal": return h("p", {}, `Of all ${a.N} outcomes, ${a.n} are in `, code(a.event), `: ${f2(a.p)}.`);
-      case "joint": return h("p", {}, `Of all ${a.N} outcomes, ${a.n} are in both `, code(a.event), " and ", code(a.given), `: ${f2(a.p)}.`);
-      case "conditional": return h("p", {}, `Of the ${a.N} outcomes in `, code(a.given), `, ${a.n} are in `, code(a.event), `: ${f2(a.p)}.`,
-        a.figure && a.figure.kind === "spine" ? ` Among the ${a.figure.nNotB} not in ${a.given}: ${a.figure.nAnotB}, ${f2(a.figure.nAnotB / a.figure.nNotB)}. Over everything: ${f2(a.figure.pA)}.` : "");
+      case "marginal": return h("p", {}, `Of all ${a.N} outcomes, ${a.n} have `, code(a.event), `: ${f2(a.p)}.`);
+      case "joint": return h("p", {}, `Of all ${a.N} outcomes, ${a.n} have both `, code(a.event), " and ", code(a.given), `: ${f2(a.p)}.`);
+      case "conditional": return h("p", {}, `Of the ${a.N} outcomes where `, code(a.given), `, ${a.n} have `, code(a.event), `: ${f2(a.p)}.`,
+        a.figure && a.figure.kind === "spine" ? ` Among the ${a.figure.nNotB} others: ${a.figure.nAnotB}, ${f2(a.figure.nAnotB / a.figure.nNotB)}. Over everything: ${f2(a.figure.pA)}.` : "");
       case "shuffle": if (!a.null) return null; {
         const outside = a.p < a.null.lo || a.p > a.null.hi;
         return h("p", {}, `200 shuffles gave ${f2(a.null.lo)}–${f2(a.null.hi)}. The answer, ${f2(a.p)}, is ${outside ? "outside" : "inside"}: `,
-          outside ? `${a.given} tells you something about ${a.event}.` : "this much could be chance.");
+          outside ? [code(a.given), " tells you something about ", code(a.event), "."] : "this much could be chance.");
       }
       case "split_half": { const c = a.checks.find((x) => x.name === "split_half"); return c ? h("p", {}, c.text) : null; }
       case "guess": { const g = ctx.guess; if (!g || g.lo == null) return h("p", {}, "No guess was made for this answer.");
         const hit = g.lo <= a.p && a.p <= g.hi; return h("p", {}, `You guessed ${f2(g.lo)}–${f2(g.hi)}; the share is ${f2(a.p)}: ${hit ? "a hit" : "a miss"}.`); }
       case "spine": if (!a.figure || a.figure.kind !== "spine") return null; { const f = a.figure;
-        return h("p", {}, `Left column ${a.given}: ${f.nB} outcomes, blue ${f2(f.nAB / f.nB)}. Right column not ${a.given}: ${f.nNotB} outcomes, blue ${f2(f.nAnotB / f.nNotB)}. Dashed line at ${f2(f.pA)}.`,
+        return h("p", {}, `Left column, ${a.given}: ${f.nB} outcomes, blue ${f2(f.nAB / f.nB)}. Right column, the others: ${f.nNotB} outcomes, blue ${f2(f.nAnotB / f.nNotB)}. Dashed line at ${f2(f.pA)}.`,
           f.band ? ` Band ${f2(f.band[0])}–${f2(f.band[1])}.` : ""); }
       case "bar": return h("p", {}, `${ofN(a.n, a.N)} = ${f2(a.p)}, whisker ${f2(a.lo)} to ${f2(a.hi)}.`);
       case "lineup": return a.lineup ? h("p", {}, "The real plot is one of the 20 under this answer. The 19 others are shuffles of ", code(a.event), ".") : null;
       case "record": return h("p", { class: "look" }, a.caption);
+      case "relation": return a.relation ? h("p", {}, `Here ${a.relation.text}.`) : null;
     }
+  }
+  if (i) {
+    const [, word] = VERDICT[i.verdict];
+    return h("p", {}, code(`${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`), i.r == null ? ": not tested, a variable is not a number."
+      : `: partial rank correlation ${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}] over ${i.n} outcomes, so it ${word}.`);
   }
   if (v) {
     const N = data.sample_space.N;
-    if (id === "variable" || id === "observed" || id === "undefined") return h("p", {}, code(v.column), `: ${v.meaning}. ${v.observed}; defined on ${ofN(v.defined, N)}`, v.defined < N ? `, ${N - v.defined} missing.` : ".");
+    if (["variable", "observed", "undefined"].includes(id)) return h("p", {}, code(v.column), `: ${v.meaning}. ${v.observed}`, v.expr ? [", as ", code(v.expr)] : "", `; defined on ${ofN(v.defined, N)}`, v.defined < N ? `, ${N - v.defined} missing.` : ".");
   }
   if (e) {
-    if (id === "event" || id === "named" || id === "undefined" || id === "count") return h("p", {}, code(e.name), `: ${e.meaning}. True on ${ofN(e.true, e.N)}, named ${e.defined_when} looking`, e.undefined ? `, undefined on ${e.undefined}.` : ".");
+    if (["event", "named", "undefined", "count"].includes(id)) return h("p", {}, code(e.where), e.meaning ? `: ${e.meaning}.` : ".", ` True on ${ofN(e.true, e.N)}, named ${e.defined_when} looking`, e.undefined ? `, undefined on ${e.undefined}.` : ".");
   }
+  if (id === "dag" && data.graph) return h("p", {}, `${data.variables.length} variables, ${data.graph.edges.length} arrows, ${data.graph.independencies.length} implied independencies.`);
   if (id === "sample-space" || id === "outcome" || id === "entry") { const sp = data.sample_space;
     return h("p", {}, `One outcome is ${sp.outcome}. ${sp.N} outcomes`, sp.time ? ` over ${sp.days} days, ${sp.per_day_min} to ${sp.per_day_max} a day.` : "."); }
   if (id === "days") { const sp = data.sample_space; return sp.time ? h("p", {}, `${sp.days} days in ${sp.timezone}, ${sp.first} to ${sp.last}.`) : null; }
   return null;
 }
 
-// Drawings that teach the hard ones.
 function draw(id) {
-  const W = 360;
   if (id === "spine") {
     const svg = s("svg", { viewBox: "0 0 440 190", width: 440, height: 190 });
     const L = 10, T = 10, ph = 140, pw = 200, wB = 0.35 * pw, hB = 0.6, hN = 0.3, pA = 0.4;
@@ -257,14 +334,14 @@ function draw(id) {
     return svg;
   }
   if (id === "bar") {
-    const svg = s("svg", { viewBox: `0 0 ${W} 60`, width: W, height: 60 });
+    const svg = s("svg", { viewBox: "0 0 360 60", width: 360, height: 60 });
     svg.append(s("rect", { x: 10, y: 14, width: 240, height: 16, fill: "var(--grey-mark)", rx: 2 }), s("rect", { x: 10, y: 14, width: 96, height: 16, fill: "var(--blue)", rx: 2 }));
     svg.append(s("line", { x1: 86, x2: 106, y1: 22, y2: 22, stroke: "var(--ink)", "stroke-width": 2 }), s("line", { x1: 86, x2: 86, y1: 17, y2: 27, stroke: "var(--ink)", "stroke-width": 2 }), s("line", { x1: 106, x2: 106, y1: 17, y2: 27, stroke: "var(--ink)", "stroke-width": 2 }));
     svg.append(s("text", { x: 10, y: 48 }, "0"), s("text", { x: 250, y: 48, "text-anchor": "end" }, "1"), s("text", { x: 58, y: 48, "text-anchor": "middle" }, "share"), s("text", { x: 262, y: 26 }, "whisker: interval"));
     return svg;
   }
   if (id === "shuffle") {
-    const svg = s("svg", { viewBox: `0 0 ${W} 120`, width: W, height: 120 });
+    const svg = s("svg", { viewBox: "0 0 360 120", width: 360, height: 120 });
     const A1 = [1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0], A2 = [0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0];
     const row = (y, A, label) => {
       svg.append(s("text", { x: 10, y: y - 14 }, label));
@@ -277,7 +354,7 @@ function draw(id) {
     return svg;
   }
   if (id === "split_half") {
-    const svg = s("svg", { viewBox: `0 0 ${W} 90`, width: W, height: 90 });
+    const svg = s("svg", { viewBox: "0 0 360 90", width: 360, height: 90 });
     const half = [0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0];
     svg.append(s("text", { x: 10, y: 14 }, "the days, each dealt to one half"));
     half.forEach((hh, i) => svg.append(s("rect", { x: 10 + i * 26, y: 24, width: 22, height: 22, rx: 3, fill: hh ? "var(--blue)" : "var(--blue-soft)" })));
@@ -300,28 +377,36 @@ function draw(id) {
     svg.append(s("text", { x: 10, y: 140, fill: "var(--ink-3)" }, { marginal: "P(A) = n / N over every outcome", joint: "P(A and B) = n / N over every outcome", conditional: "P(A | B) = n / N over the outcomes in B only" }[id]));
     return svg;
   }
+  if (id === "relation" || id === "dag") {
+    const svg = s("svg", { viewBox: "0 0 360 70", width: 360, height: 70 });
+    const box = (x, label) => svg.append(s("rect", { x, y: 20, width: 56, height: 26, rx: 4, fill: "#fff", stroke: "var(--ink)" }), s("text", { x: x + 28, y: 37, "text-anchor": "middle" }, label));
+    box(10, "cause"); box(150, "effect"); box(290, "later");
+    svg.append(s("defs", {}, s("marker", { id: "arr2", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: "auto" }, s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "var(--ink-2)" }))));
+    svg.append(s("line", { x1: 66, x2: 148, y1: 33, y2: 33, stroke: "var(--ink-2)", "marker-end": "url(#arr2)" }), s("line", { x1: 206, x2: 288, y1: 33, y2: 33, stroke: "var(--ink-2)", "marker-end": "url(#arr2)" }));
+    svg.append(s("text", { x: 10, y: 64, fill: "var(--ink-3)" }, "left of the event: upstream. Right of it: downstream."));
+    return svg;
+  }
   return null;
 }
 
 // --- sections ----------------------------------------------------------------------------------------------------
 
 function toc() {
-  const items = [["sample-space", "Sample space"], ["observed", "What is observed"]];
+  const items = [["data", "Data"]];
   if (data.graph) items.push(["graph", "Graph"]);
   if (data.events.length) items.push(["events", "Events"]);
   if (data.answers.length) items.push(["questions", "Questions"]);
-  items.push(["concepts", "Concepts"]);
   const ol = h("ol", {});
   for (const [id, label] of items) {
     ol.append(h("li", {}, h("a", { href: `#${id}` }, label)));
     if (id === "questions") {
       const sub = h("ol", { class: "sub" });
-      data.answers.forEach((a, i) => sub.append(h("li", {}, h("a", { href: `#q${i + 1}` }, `P(${a.name})`))));
+      data.answers.forEach((a, i) => { const t = `P(${a.name})`; sub.append(h("li", {}, h("a", { href: `#q${i + 1}`, title: t }, t.length > 34 ? t.slice(0, 33) + "…" : t))); });
       ol.append(h("li", {}, sub));
     }
   }
   return h("nav", { class: "toc", "aria-label": "Contents" }, h("a", { class: "home", href: data.home }, "← Home"), ol,
-    h("p", { class: "small", style: "margin-top:1rem" }, h("button", { type: "button", class: "quiet", onclick: () => openIndex() }, "? Explain anything")));
+    h("p", { class: "small explain" }, h("button", { type: "button", class: "quiet", onclick: () => openIndex() }, "? Explain anything")));
 }
 
 function header() {
@@ -332,81 +417,69 @@ function header() {
     h("p", { class: "lede" }, data.phenomenon), h("p", { class: "meta" }, ...meta));
 }
 
-function sampleSpace() {
-  const sp = data.sample_space;
-  const dl = h("dl", { class: "facts" },
-    h("dt", {}, term("One outcome is", "outcome")), h("dd", {}, sp.outcome),
-    h("dt", {}, term("Rows", "sample-space")), h("dd", {}, code(sp.source), " where ", code(sp.where)));
-  if (sp.time) dl.append(h("dt", {}, term("Time", "days")), h("dd", {}, code(sp.time), `, days in ${sp.timezone}: ${sp.per_day_min} to ${sp.per_day_max} outcomes a day`));
-  if (sp.entry) dl.append(h("dt", {}, term("How a row gets in", "entry")), h("dd", {}, sp.entry));
-  for (const j of data.joins) {
-    dl.append(h("dt", {}, term(`Joined as ${j.name}`, "join")), h("dd", {}, code(j.source), " where ", code(j.where), " on ", code(j.key),
-      j.closes ? h("div", { class: "small" }, `Closes: ${j.closes}`) : null));
-  }
-  return h("section", { id: "sample-space" }, h("h2", {}, term("Sample space", "sample-space"), help("sample-space")), dl);
-}
-
-function observed() {
-  const N = data.sample_space.N;
+function dataSection() {
+  const sp = data.sample_space, N = sp.N;
   const rows = data.variables.map((v) => h("tr", { class: v.defined < N ? "gap" : null },
-    h("td", {}, code(v.column)), h("td", {}, v.meaning), h("td", {}, chip("", v.observed, "observed", { variable: v })),
-    h("td", {}, share(v.defined, N), v.defined < N ? [" ", chip("warn", `${N - v.defined} missing`, "undefined", { variable: v })] : null),
+    h("td", { class: "key" }, term(v.column, "variable", { variable: v })), h("td", {}, v.meaning, v.expr ? [" ", h("span", { class: "small" }, "= ", code(v.expr))] : null),
+    h("td", {}, mark(v.observed === "measured" ? "" : "warn", v.observed, "observed", { variable: v })),
+    h("td", {}, share(v.defined, N)),
     h("td", { class: "num" }, v.distinct), h("td", { class: "num" }, v.low), h("td", { class: "num" }, v.high)));
-  const heads = [["variable", "variable"], ["meaning", null], ["observed", "observed"], ["defined", "undefined"], ["distinct", null], ["low", null], ["high", null]];
-  const table = h("table", {}, h("thead", {}, h("tr", {}, ...heads.map(([t, id], i) => h("th", { class: i >= 4 ? "num" : null }, id ? term(t, id) : t)))),
-    h("tbody", {}, ...rows));
-  const raw = h("details", {}, h("summary", {}, `Show ${data.raw.rows.length} raw outcomes, spread over time`),
+  const table = h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, term("variable", "variable")), h("th", {}, "meaning"), h("th", {}, term("observed", "observed")),
+    h("th", {}, term("defined", "undefined")), h("th", { class: "num" }, "distinct"), h("th", { class: "num" }, "low"), h("th", { class: "num" }, "high"))), h("tbody", {}, ...rows));
+  const dl = h("dl", { class: "facts" }, h("dt", {}, term("Rows", "sample-space")), h("dd", {}, code(sp.source), " where ", code(sp.where)));
+  if (sp.time) dl.append(h("dt", {}, term("Time", "days")), h("dd", {}, code(sp.time), `, days in ${sp.timezone}, ${sp.per_day_min} to ${sp.per_day_max} outcomes a day`));
+  if (sp.entry) dl.append(h("dt", {}, term("Gets in", "entry")), h("dd", {}, sp.entry));
+  for (const j of data.joins) dl.append(h("dt", {}, term(`Joined ${j.name}`, "join")), h("dd", {}, code(j.source), " where ", code(j.where), " on ", code(j.key), j.closes ? h("div", { class: "small" }, `Closes: ${j.closes}`) : null));
+  const raw = h("details", {}, h("summary", {}, `${data.raw.rows.length} raw outcomes, spread over time`),
     h("div", { class: "raw-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, ...data.raw.columns.map((c) => h("th", {}, c)))),
       h("tbody", {}, ...data.raw.rows.map((r) => h("tr", {}, ...r.map((c) => h("td", {}, c))))))));
-  return h("section", { id: "observed" }, h("h2", {}, term("What is observed", "variable"), help("variable")),
-    h("p", { class: "small" }, "On how many outcomes each variable is defined. A variable defined on fewer than all is a gap: the join missed, or the source lacks it."),
-    table, raw);
+  return h("section", { id: "data" }, h("h2", {}, term("Data", "sample-space"), help("sample-space")),
+    h("p", {}, "One ", term("outcome", "outcome"), " is ", h("b", {}, sp.outcome), "."), table,
+    h("details", {}, h("summary", {}, "Where the rows come from"), dl), raw);
 }
 
-function graph() {
-  return h("section", { id: "graph" }, h("h2", {}, term("Graph", "graph"), help("graph")), h("p", {}, data.graph));
+function graphSection() {
+  const g = data.graph;
+  return h("section", { id: "graph" }, h("h2", {}, term("Graph", "dag"), help("dag")),
+    h("div", { class: "dag" }, g.edges.length ? dag(g) : h("p", { class: "small" }, "No arrows drawn.")),
+    g.notes ? h("p", { class: "small" }, g.notes) : null,
+    g.edges.length ? independencies(g) : null);
 }
 
-function events() {
-  const rows = data.events.map((e) => h("tr", {},
-    h("td", {}, code(e.name)), h("td", {}, e.meaning), h("td", {}, code(e.where)),
-    h("td", {}, chip(e.defined_when === "after" ? "warn" : "", e.defined_when, "named", { event: e })),
-    h("td", {}, share(e.true, e.N)), h("td", { class: "num" }, e.undefined)));
-  const heads = [["event", "event"], ["meaning", null], ["where", "event"], ["named", "named"], ["true", "count"], ["undefined", "undefined"]];
-  return h("section", { id: "events" }, h("h2", {}, term("Events", "event"), help("event")),
-    h("p", { class: "small" }, "Subsets of the sample space, as boolean expressions over its columns. Named after looking means a hypothesis found in the data."),
-    h("table", {}, h("thead", {}, h("tr", {}, ...heads.map(([t, id], i) => h("th", { class: i === 5 ? "num" : null }, id ? term(t, id) : t)))),
-      h("tbody", {}, ...rows)));
+function eventsSection() {
+  const items = data.events.map((e) => h("li", {},
+    h("span", {}, term(e.where, "event", { event: e }), e.defined_when === "after" ? [" ", mark("warn", "named after looking", "named", { event: e })] : null),
+    share(e.true, e.N),
+    e.meaning || e.undefined ? h("span", { class: "meaning" }, e.meaning, e.undefined ? h("span", { class: "muted" }, `${e.meaning ? " · " : ""}undefined on ${e.undefined}`) : null) : null));
+  return h("section", { id: "events" }, h("h2", {}, term("Events", "event"), help("event"), h("span", { class: "n" }, "share of outcomes where true")),
+    h("ul", { class: "events" }, ...items));
 }
 
 // --- questions ---------------------------------------------------------------------------------------------------
 
-function headingOf(a) {
-  const ctx = { answer: a };
-  if (a.kind === "marginal") return [term("How often", "marginal", ctx), " ", code(a.event), "?"];
-  if (a.kind === "joint") return [term("How often", "joint", ctx), " ", code(a.event), " and ", code(a.given), " ", term("together", "joint", ctx), "?"];
-  return [term("Given", "conditional", ctx), " ", code(a.given), ", ", term("how often", "conditional", ctx), " ", code(a.event), "?"];
-}
+const RELATION = { upstream: ["→", "given upstream"], downstream: ["←", "given downstream"], both: ["↔", "up and downstream"],
+  common: ["⌃", "common cause only"], unconnected: ["∅", "unconnected in graph"], same: ["=", "same variable"], none: ["?", "not in graph"] };
 
-function chipsOf(a, guess) {
+function marksOf(a, guess) {
   const ctx = { answer: a, guess };
-  const chips = [];
+  const marks = [];
   if (a.null) {
     const outside = a.p < a.null.lo || a.p > a.null.hi;
-    chips.push(chip(outside ? "signal" : "", `${outside ? "● outside" : "○ inside"} null ${f2(a.null.lo)}–${f2(a.null.hi)}`, a.null.name, ctx));
+    marks.push(mark(outside ? "signal" : "", `${outside ? "●" : "○"} ${outside ? "outside" : "inside"} null ${f2(a.null.lo)}–${f2(a.null.hi)}`, a.null.name, ctx));
   }
   for (const c of a.checks) {
     const m = c.text.match(/\((\d+) of (\d+)/);
-    const short = m ? `${m[1]}/${m[2]} splits` : "";
-    if (c.ok === true) chips.push(chip("good", `✓ stable ${short}`, c.name, ctx));
-    else if (c.ok === false) chips.push(chip("warn", `△ unstable ${short}`, c.name, ctx));
-    else chips.push(chip("", `? ${c.name}`, c.name, ctx));
+    const short = m ? `${m[1]}/${m[2]}` : "";
+    if (c.ok === true) marks.push(mark("good", `✓ stable ${short}`, c.name, ctx));
+    else if (c.ok === false) marks.push(mark("warn", `△ unstable ${short}`, c.name, ctx));
+    else marks.push(mark("", `? ${c.name}`, c.name, ctx));
   }
+  if (a.relation) { const [g, w] = RELATION[a.relation.kind]; marks.push(mark(a.relation.kind === "unconnected" ? "warn" : "", `${g} ${w}`, "relation", ctx)); }
   if (guess && guess.lo != null) {
     const hit = guess.lo <= a.p && a.p <= guess.hi;
-    chips.push(chip(hit ? "good" : "bad", `${hit ? "✓ guess hit" : "✗ guess missed"} ${f2(guess.lo)}–${f2(guess.hi)}`, "guess", ctx));
-  } else chips.push(chip("", "no guess", "guess", ctx));
-  return h("ul", { class: "chips" }, ...chips.map((c) => h("li", {}, c)));
+    marks.push(mark(hit ? "good" : "bad", `${hit ? "✓ guess hit" : "✗ guess missed"} ${f2(guess.lo)}–${f2(guess.hi)}`, "guess", ctx));
+  } else marks.push(mark("", "no guess", "guess", ctx));
+  return h("ul", { class: "marks" }, ...marks.map((m) => h("li", {}, m)));
 }
 
 function lineupOf(a, i) {
@@ -433,7 +506,7 @@ function lineupOf(a, i) {
   }
   const saved = store.get(key);
   const det = h("details", { class: "lineup", open: saved != null },
-    h("summary", {}, "Try the ", term("lineup", "lineup", { answer: a }), ": the real plot among 19 shuffled ones"), verdict, grid);
+    h("summary", {}, "The ", term("lineup", "lineup", { answer: a }), ": the real plot among 19 shuffled ones"), verdict, grid);
   if (saved != null) pick(saved, true);
   return det;
 }
@@ -441,24 +514,22 @@ function lineupOf(a, i) {
 function question(a, i) {
   const id = `q${i + 1}`, key = `guess:${i}`;
   const card = h("article", { class: "q", id });
-  card.append(h("h3", {}, ...headingOf(a), help(a.kind, { answer: a })));
   const body = h("div", {});
   card.append(body);
 
   function reveal(guess) {
     const ctx = { answer: a, guess };
+    const lhs = term(`P(${a.name}) =`, a.kind, ctx), p = term(f2(a.p), "count", ctx), ci = term(`[${f2(a.lo)}, ${f2(a.hi)}]`, "interval", ctx), nn = term(ofN(a.n, a.N), "count", ctx);
+    lhs.classList.add("lhs"); p.classList.add("p"); ci.classList.add("ci"); nn.classList.add("nn");
     const fig = h("figure", { title: "Click for how to read this figure", onclick: () => openPane(a.figure.kind, ctx) },
       FIGURES[a.figure.kind](a.figure, a), h("figcaption", {}, legend(a)));
-    body.replaceChildren(
-      h("p", { class: "statement" }, term(`P(${a.name}) =`, a.kind, ctx), term(f2(a.p), "count", ctx),
-        term(`[${f2(a.lo)}, ${f2(a.hi)}]`, "interval", ctx), term(ofN(a.n, a.N), "count", ctx)),
-      chipsOf(a, guess), fig,
+    const meanings = [a.event, a.given].filter(Boolean).map((w) => data.events.find((e) => e.where === w)).filter((e) => e && e.meaning);
+    body.replaceChildren(...[
+      h("h3", { class: "statement" }, lhs, p, ci, nn),
+      meanings.length ? h("p", { class: "why" }, meanings.map((e, k) => [k ? "; " : "", code(e.where), ": ", e.meaning])) : null,
+      marksOf(a, guess), fig,
       a.lineup ? lineupOf(a, i) : null,
-      h("details", {}, h("summary", {}, "The ", term("line", "record", ctx), " as the record has it"), h("pre", { class: "record" }, a.caption)));
-    body.querySelector(".statement .term:nth-child(2)").classList.add("p");
-    body.querySelector(".statement .term:nth-child(1)").classList.add("lhs");
-    body.querySelector(".statement .term:nth-child(3)").classList.add("ci");
-    body.querySelector(".statement .term:nth-child(4)").classList.add("nn");
+      h("details", {}, h("summary", {}, "The ", term("line", "record", ctx), " as the record has it"), h("pre", { class: "record" }, a.caption))].filter(Boolean));
   }
 
   function ask() {
@@ -471,10 +542,12 @@ function question(a, i) {
       store.set(key, g);
       reveal(g);
     });
-    body.replaceChildren(h("div", { class: "guess" },
-      h("span", {}, "Before you look: ", term("the share", "guess", { answer: a }), " is between"), h("label", {}, lo), h("span", {}, "and"), h("label", {}, hi), go,
-      h("span", { class: "small" }, onFile ? `On file in explore.yaml: ${f2(onFile[0])}–${f2(onFile[1])}. Change it or reveal as is; leave both empty for no guess.`
-        : "Leave both empty to reveal without a guess.")));
+    body.replaceChildren(
+      h("h3", { class: "statement" }, h("span", { class: "lhs" }, `P(${a.name}) =`), h("span", { class: "p muted" }, "?")),
+      h("div", { class: "guess" },
+        h("span", {}, "Before you look, ", term("guess", "guess", { answer: a }), ": between"), lo, h("span", {}, "and"), hi, go,
+        h("span", { class: "small" }, onFile ? `On file in explore.yaml: ${f2(onFile[0])}–${f2(onFile[1])}. Change it or reveal as is; leave both empty for no guess.`
+          : "Leave both empty to reveal without a guess.")));
   }
 
   const saved = store.get(key);
@@ -489,17 +562,8 @@ function questions() {
   revealAll.addEventListener("click", () => cards.forEach((c) => c.revealAll()));
   const clear = h("button", { class: "quiet", type: "button" }, "Clear my guesses");
   clear.addEventListener("click", () => { store.clear(); location.reload(); });
-  return h("section", { id: "questions" }, h("h2", {}, "Questions", help("conditional")),
-    h("div", { class: "toolbar" }, revealAll, clear,
-      h("span", { class: "small" }, "Each answer is hidden until you have written your ", term("guess", "guess"), ". Guesses stay in this browser.")),
-    ...cards);
-}
-
-function conceptsSection() {
-  const ul = h("ul", { class: "index" });
-  for (const c of data.concepts) ul.append(h("li", {}, h("button", { type: "button", onclick: () => openPane(c.id) }, c.title, h("span", { class: "small" }, c.what))));
-  return h("section", { id: "concepts" }, h("h2", {}, "Concepts"),
-    h("p", { class: "small" }, "Everything this page uses, in the pane on the right when clicked. The same on every structured explore."), ul);
+  return h("section", { id: "questions" }, h("h2", {}, "Questions", help("conditional"), h("span", { class: "n" }, "each hidden until you have guessed")),
+    h("div", { class: "toolbar" }, revealAll, clear), ...cards);
 }
 
 function foot() {
@@ -509,11 +573,10 @@ function foot() {
 
 // --- page --------------------------------------------------------------------------------------------------------
 
-const main = h("main", {}, header(), sampleSpace(), observed(), data.graph ? graph() : null,
-  data.events.length ? events() : null, data.answers.length ? questions() : null, conceptsSection(), foot());
+const main = h("main", {}, header(), dataSection(), data.graph ? graphSection() : null,
+  data.events.length ? eventsSection() : null, data.answers.length ? questions() : null, foot());
 document.getElementById("app").append(h("div", { class: "layout" }, toc(), main));
 
-// The table of contents follows the reader.
 const links = [...document.querySelectorAll(".toc a[href^='#']")];
 const observer = new IntersectionObserver((entries) => {
   for (const e of entries) {

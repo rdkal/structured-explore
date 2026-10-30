@@ -11,7 +11,8 @@ sample space is wrong, or the outcome is an item of an order. Then:
   space with no selection; "the hours a bid was placed" is one where the selection is part of every answer.
 - `time`: the column that orders outcomes in time, a UTC timestamp. Split-half halves whole days by it. `timezone`
   is the zone whose days those are; `day` is SQL for the day outright when the zone is not enough.
-- `variables`: the columns the events will use, each with its `meaning` and how it is `observed`: `measured`, `proxy`
-  (stands for the thing meant) or `derived` (from other columns). `alias` renames a column in Ω.
+- `variables`: every column the explore is about, each with its `meaning` and how it is `observed`: `measured`, `proxy`
+  (stands for the thing meant) or `derived`, computed by `expr`, SQL over the source's row, such as the hour of day.
+  `alias` renames a source column in Ω. Every variable is a node of the graph, so list what the graph needs.
 
 Writes `sample_space`.
