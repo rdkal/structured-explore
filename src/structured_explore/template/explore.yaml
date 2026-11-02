@@ -32,9 +32,13 @@ sample_space:
 #     variables:
 #       - {name: <column>, alias: <name in Ω>, meaning: <...>}
 
-# The arrows between the variables, cause -> effect. A pair with no arrow is a claim of independence, which the
-# page tests.
+# The variables in time order, a list per level, and the arrows between them, cause -> effect, always from an
+# earlier level to a later one. Two of one level that move together through something not in the data: a <-> b.
+# A pair with no arrow and no <-> is a claim of independence, which the page tests.
 graph:
+  levels:
+    - [<variable>]
+    - [<variable>, <variable>]
   edges:
     - <variable> -> <variable>
   notes: >-

@@ -31,8 +31,9 @@ inlined in it, so it needs no server.
 
 ## The graph
 
-`graph.edges` are the author's arrows, cause -> effect, between the variables. The page draws them, and for every two
-variables with no arrow it finds the smallest set that d-separates them, tests that independence on the data by
+`graph.levels` put the variables in time order, a list per level, and `graph.edges` are the author's arrows, cause ->
+effect, always from an earlier level to a later one; `a <-> b` joins two that move together through a cause not in the
+data. The page draws them top to bottom, and for every two variables with no link it finds the smallest set that d-separates them, tests that independence on the data by
 partial rank correlation, and says holds, fails or unclear. Each conditional answer is marked with where its given
 stands to its event in the graph: upstream, downstream, a common cause only, or unconnected. A fail is a missing arrow;
 an outside-the-null answer between unconnected variables is a missing path. The graph is tested, never confirmed.
@@ -79,6 +80,7 @@ joins:
     variables:
       - {name: returned_at, meaning: when the return was booked, null when it never was}
 graph:
+  levels: [[weekday], [discount_pct], [returned_at]]
   edges: [weekday -> discount_pct, discount_pct -> returned_at]
   notes: the discount is set before the order, a return comes after it; nothing in the data causes the weekday
 events:

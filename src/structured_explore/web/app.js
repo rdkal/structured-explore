@@ -127,62 +127,50 @@ function legend(a) {
 // --- the graph ---------------------------------------------------------------------------------------------------
 
 function dag(g) {
-  const nodes = data.variables.map((v) => v.column);
-  const parents = (n) => g.edges.filter(([, b]) => b === n).map(([a]) => a);
-  const touched = new Set(g.edges.flat());
-  const layer = {};
-  const depth = (n, seen = new Set()) => {
-    if (layer[n] != null) return layer[n];
-    if (seen.has(n)) return 0;
-    seen.add(n);
-    const ps = parents(n);
-    layer[n] = ps.length ? 1 + Math.max(...ps.map((p) => depth(p, seen))) : 0;
-    return layer[n];
-  };
-  const linked = nodes.filter((n) => touched.has(n)), alone = nodes.filter((n) => !touched.has(n));
-  linked.forEach((n) => depth(n));
-  const layers = [];
-  for (const n of linked) (layers[layer[n]] ||= []).push(n);
-  const width = (n) => n.length * 7.4 + 22, rowH = 44, pad = 12;
-  const colX = [];
-  let x = pad;
-  layers.forEach((ns, i) => { colX[i] = x; x += Math.max(...ns.map(width)) + 70; });
-  const rows = Math.max(1, ...layers.map((l) => l.length));
-  // An arrow that skips a layer is lifted into an arc above the row, higher the more it skips, so arrows do not hide
-  // each other when the graph is a chain.
-  const LIFT = 20;
-  const maxSkip = Math.max(0, ...g.edges.map(([a, b]) => layer[b] - layer[a] - 1));
-  const top = pad + maxSkip * LIFT;
-  const pos = {};
-  layers.forEach((ns, i) => ns.forEach((n, j) => { pos[n] = { x: colX[i], y: top + (j + (rows - ns.length) / 2) * rowH, w: width(n) }; }));
-  const H = top + pad + rows * rowH + (alone.length ? rowH + 10 : 0);
-  const W = Math.max(x - 70 + pad, alone.reduce((a, n) => a + width(n) + 12, pad) + pad, 320);
+  // Rows are the levels, top to bottom; arrows run down from a node's bottom to a later node's top, those that skip
+  // a level bowed sideways so they do not cross the nodes between. Shared causes are dashed arcs over the pair.
+  const width = (n) => n.length * 7.4 + 22, nodeH = 28, rowH = 78, pad = 14, gapX = 28;
+  const rows = g.levels;
+  const rowW = rows.map((r) => r.reduce((w, n) => w + width(n), 0) + gapX * Math.max(r.length - 1, 0));
+  const W = Math.max(...rowW, 240) + pad * 2 + 80;
+  const H = pad * 2 + rows.length * rowH - (rowH - nodeH) + 10;
+  const pos = {}, level = {};
+  rows.forEach((r, i) => {
+    let x = (W - rowW[i]) / 2;
+    for (const n of r) { pos[n] = { x, y: pad + 10 + i * rowH, w: width(n) }; level[n] = i; x += width(n) + gapX; }
+  });
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
-  const defs = s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
-    s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "var(--ink-2)" })));
-  svg.append(defs);
+  svg.append(s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
+    s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "var(--ink-2)" }))));
+  let side = 1;
   for (const [a, b] of g.edges) {
     const A = pos[a], B = pos[b];
-    const skip = layer[b] - layer[a] - 1;
-    const x1 = A.x + A.w, y1 = A.y + (skip ? 0 : 14), x2 = B.x, y2 = B.y + (skip ? 0 : 14), dx = Math.max((x2 - x1) / 2, 20);
-    const lift = skip * LIFT * 1.6;
-    const path = s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + dx} ${y1 - lift}, ${x2 - dx} ${y2 - lift}, ${x2} ${y2}`, "marker-end": "url(#arrow)" });
+    if (!A || !B) continue;
+    const skip = level[b] - level[a] - 1;
+    const x1 = A.x + A.w / 2, y1 = A.y + nodeH, x2 = B.x + B.w / 2, y2 = B.y;
+    const bow = skip ? side * (34 + 26 * skip) : 0;
+    if (skip) side = -side;
+    const dy = (y2 - y1) / 2;
+    const path = s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + bow} ${y1 + dy}, ${x2 + bow} ${y2 - dy}, ${x2} ${y2}`, "marker-end": "url(#arrow)" });
     path.append(s("title", {}, `${a} → ${b}`));
     svg.append(path);
   }
-  const node = (n, p, cls) => {
-    const v = VARS[n];
-    const gEl = s("g", { class: `node ${cls} ${v && v.expr ? "derived" : ""}`, transform: `translate(${p.x} ${p.y})` });
-    gEl.append(s("rect", { width: p.w, height: 28 }), s("text", { x: p.w / 2, y: 18, "text-anchor": "middle" }, n));
+  for (const [a, b] of g.latent) {
+    const A = pos[a], B = pos[b];
+    if (!A || !B) continue;
+    const x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y = Math.min(A.y, B.y);
+    const path = s("path", { class: "edge latent", d: `M ${x1} ${y} C ${x1} ${y - 26}, ${x2} ${y - 26}, ${x2} ${y}`, "marker-end": "url(#arrow)", "marker-start": "url(#arrow)" });
+    path.append(s("title", {}, `${a} <-> ${b}: a shared cause not in the data`));
+    svg.append(path);
+  }
+  for (const n of Object.keys(pos)) {
+    const p = pos[n], v = VARS[n];
+    const gEl = s("g", { class: `node ${v && v.expr ? "derived" : ""}`, transform: `translate(${p.x} ${p.y})` });
+    gEl.append(s("rect", { width: p.w, height: nodeH }), s("text", { x: p.w / 2, y: 18, "text-anchor": "middle" }, n));
     gEl.append(s("title", {}, v ? `${n}: ${v.meaning} (${v.observed})` : n));
     gEl.addEventListener("click", () => openPane("variable", { variable: v }));
-    return gEl;
-  };
-  for (const n of linked) svg.append(node(n, pos[n], ""));
-  let ax = pad;
-  const ay = top + rows * rowH + 10;
-  if (alone.length) svg.append(s("text", { x: pad, y: ay - 2, fill: "var(--ink-3)", "font-size": 10 }, "no arrows:"));
-  for (const n of alone) { svg.append(node(n, { x: ax, y: ay + 4, w: width(n) }, "alone")); ax += width(n) + 12; }
+    svg.append(gEl);
+  }
   return svg;
 }
 

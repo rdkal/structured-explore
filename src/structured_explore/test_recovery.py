@@ -49,7 +49,8 @@ def spec(source: Path) -> Spec:
         Question("conditional", "w", "y and k"),                             # 8
     ]
     space = SampleSpace("one simulated hour", str(source), time="time", variables=v)
-    g = Graph([("x", "y"), ("c", "t"), ("c", "s"), ("t", "s"), ("y", "k"), ("w", "k")], "as simulated")
+    g = Graph([("x", "y"), ("c", "t"), ("c", "s"), ("t", "s"), ("y", "k"), ("w", "k")],
+              levels=[["x", "z", "c", "w"], ["y", "t"], ["s", "k"]], notes="as simulated")
     return Spec("simulation", "planted", space, graph=g, events=events, questions=questions, checks=["split_half"])
 
 
@@ -193,3 +194,24 @@ def test_every_kind_is_explained():
     for c in concepts.all():
         for s in c.see:
             assert s in ids, (c.id, s)
+
+
+def test_levels_and_shared_causes(tmp_path):
+    from structured_explore import graph
+    base = "title: t\nphenomenon: p\nsample_space: {outcome: o, source: s, variables: [{name: a, meaning: a}, {name: b, meaning: b}, {name: c, meaning: c}]}\n"
+    (tmp_path / "explore.yaml").write_text(base + "graph: {levels: [[a], [b, c]], edges: [a -> b, b -> c]}\n")
+    with pytest.raises(ValueError):   # an arrow within a level
+        load(tmp_path / "explore.yaml")
+    (tmp_path / "explore.yaml").write_text(base + "graph: {levels: [[a], [b]], edges: [a -> b]}\n")
+    with pytest.raises(ValueError):   # c in no level
+        load(tmp_path / "explore.yaml")
+    (tmp_path / "explore.yaml").write_text(base + "graph: {levels: [[a], [b, c]], edges: [a -> b, b <-> c]}\n")
+    g = load(tmp_path / "explore.yaml").graph
+    assert g.latent == [("b", "c")] and g.levels == [["a"], ["b", "c"]]
+    # b and c share a hidden cause, so they are dependent. a reaches c only through b, a collider on that path
+    # (a -> b <- hidden -> c): a ⊥ c, but conditioning on b opens the path.
+    assert not graph.d_separated(g, "b", "c", set())
+    assert graph.d_separated(g, "a", "c", set()) and not graph.d_separated(g, "a", "c", {"b"})
+    assert graph.implied(g, ["a", "b", "c"]) == [("a", "c", [])]
+    # Levels worked out from the arrows when the spec gives none.
+    assert graph.levels(Graph([("a", "b"), ("b", "c")]), ["a", "b", "c", "d"]) == [["a", "d"], ["b"], ["c"]]

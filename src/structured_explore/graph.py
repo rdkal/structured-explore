@@ -19,12 +19,18 @@ SMALL = 0.1
 MAX_GIVEN = 3
 
 
+def arrows(g: Graph) -> list[tuple[str, str]]:
+    """The arrows with every shared cause a <-> b as a hidden node with arrows to both."""
+    hidden = [(f"_latent{i}", a, b) for i, (a, b) in enumerate(g.latent)]
+    return g.edges + [(h, a) for h, a, _ in hidden] + [(h, b) for h, _, b in hidden]
+
+
 def parents(g: Graph, n: str) -> set[str]:
-    return {a for a, b in g.edges if b == n}
+    return {a for a, b in arrows(g) if b == n}
 
 
 def children(g: Graph, n: str) -> set[str]:
-    return {b for a, b in g.edges if a == n}
+    return {b for a, b in arrows(g) if a == n}
 
 
 def ancestors(g: Graph, n: str) -> set[str]:
@@ -48,7 +54,27 @@ def descendants(g: Graph, n: str) -> set[str]:
 
 
 def adjacent(g: Graph, x: str, y: str) -> bool:
-    return (x, y) in g.edges or (y, x) in g.edges
+    return (x, y) in g.edges or (y, x) in g.edges or (x, y) in g.latent or (y, x) in g.latent
+
+
+def levels(g: Graph, nodes: list[str]) -> list[list[str]]:
+    """The spec's levels, or the variables by the longest path of arrows above them, roots first."""
+    if g.levels:
+        return g.levels
+    depth: dict[str, int] = {}
+
+    def d(n: str) -> int:
+        if n not in depth:
+            ps = [p for p in parents(g, n) if not p.startswith("_latent")]
+            depth[n] = 1 + max((d(p) for p in ps), default=-1)
+        return depth[n]
+
+    for n in nodes:
+        d(n)
+    out: list[list[str]] = [[] for _ in range(max(depth.values(), default=0) + 1)]
+    for n in nodes:
+        out[depth[n]].append(n)
+    return out
 
 
 def d_separated(g: Graph, x: str, y: str, z: set[str]) -> bool:
@@ -57,7 +83,7 @@ def d_separated(g: Graph, x: str, y: str, z: set[str]) -> bool:
     keep = {x, y, *z}
     for n in list(keep):
         keep |= ancestors(g, n)
-    edges = {(a, b) for a, b in g.edges if a in keep and b in keep}
+    edges = {(a, b) for a, b in arrows(g) if a in keep and b in keep}
     undirected = {frozenset(e) for e in edges}
     for n in keep:  # marry the parents
         ps = [a for a, b in edges if b == n]
@@ -182,10 +208,12 @@ def relation(g: Graph, event: list[str], given: list[str]) -> dict:
 EXPLAIN = {
     "dag": Concept(
         "dag", "The graph",
-        "The author's arrows between the variables: what causes what, drawn as a graph with no cycles.",
-        "Written in the spec as cause -> effect over the variables, which are every column of the outcome. Variables "
-        "with no arrow are drawn apart. The tool draws it left to right in causal order.",
-        "A missing arrow is a claim too: it says the two have nothing to do with each other except through the "
+        "The author's arrows between the variables: what causes what, drawn top to bottom in time order.",
+        "Written in the spec as cause -> effect over the variables, which are every column of the outcome, in "
+        "levels: a level is a moment, such as one auction's close, and an arrow goes from an earlier level to a "
+        "later one, never within one. Two variables of one level that move together through something not in the "
+        "data are joined by a dashed two-headed link, a <-> b, a shared cause.",
+        "A missing link is a claim too: it says the two have nothing to do with each other except through the "
         "arrows drawn. Those claims are what the independencies below test.",
         "The graph is an assumption the data can contradict but not confirm: many graphs imply the same "
         "independencies.",

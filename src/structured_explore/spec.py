@@ -57,6 +57,11 @@ class Join:
 class Graph:
     # Arrows between variables, by their names in Ω: cause -> effect.
     edges: list[tuple[str, str]] = field(default_factory=list)
+    # The variables in time order, a list per level, top to bottom. An arrow goes from an earlier level to a later
+    # one, never within one. Left out, the levels are worked out from the arrows.
+    levels: list[list[str]] = field(default_factory=list)
+    # Pairs that move together through a cause not in the data, a <-> b, drawn dashed; usually within a level.
+    latent: list[tuple[str, str]] = field(default_factory=list)
     # What the arrows rest on, and what the graph leaves out, in words.
     notes: str = ""
 
@@ -112,9 +117,19 @@ def _graph(raw, columns: list[str]) -> Graph | None:
         return None
     if isinstance(raw, str):
         return Graph(notes=raw)
-    edges = []
+    edges, latent = [], []
     for line in raw.get("edges") or []:
-        parts = [p.strip() for p in str(line).split("->")]
+        line = str(line)
+        if "<->" in line:
+            parts = [p.strip() for p in line.split("<->")]
+            if len(parts) != 2 or not all(parts):
+                raise ValueError(f"graph edge {line!r}: write a shared cause as a <-> b")
+            for n in parts:
+                if n not in columns:
+                    raise ValueError(f"graph edge {line!r}: {n} is not a variable")
+            latent.append((parts[0], parts[1]))
+            continue
+        parts = [p.strip() for p in line.split("->")]
         if len(parts) < 2 or not all(parts):
             raise ValueError(f"graph edge {line!r}: write it as cause -> effect")
         for a, b in zip(parts, parts[1:]):
@@ -122,7 +137,20 @@ def _graph(raw, columns: list[str]) -> Graph | None:
                 if n not in columns:
                     raise ValueError(f"graph edge {line!r}: {n} is not a variable")
             edges.append((a, b))
-    return Graph(edges, raw.get("notes", ""))
+    levels = [[str(n) for n in level] for level in raw.get("levels") or []]
+    if levels:
+        placed = [n for level in levels for n in level]
+        for n in placed:
+            if n not in columns:
+                raise ValueError(f"graph level: {n} is not a variable")
+        for n in columns:
+            if placed.count(n) != 1:
+                raise ValueError(f"graph levels: {n} must be in exactly one level")
+        depth = {n: i for i, level in enumerate(levels) for n in level}
+        for a, b in edges:
+            if depth[a] >= depth[b]:
+                raise ValueError(f"graph edge {a} -> {b}: an arrow goes from an earlier level to a later one")
+    return Graph(edges, levels, latent, raw.get("notes", ""))
 
 
 def load(path: Path) -> Spec:

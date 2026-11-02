@@ -5,17 +5,26 @@ a node; the author writes the arrows:
 
 ```yaml
 graph:
+  levels:
+    - [hour]
+    - [volume_1, price_1]
+    - [day_ahead]
+    - [volume_2, price_2]
   edges:
-    - price_1 -> price_2
-    - day_ahead -> price_2
     - hour -> price_1
+    - price_1 -> day_ahead
+    - day_ahead -> price_2
+    - volume_1 <-> price_1
   notes: what the arrows rest on, what is a root, what is left out
 ```
 
-Take the arrows from the project's causal model when it has one, else from time order and what is known of the
-domain: a cause comes before its effect; a root, such as the hour of day, has no cause in the data. Variables that
-belong in the graph but are not yet columns, the hour, the weekday, go into the sample space as derived variables
-(`expr`) so they can be drawn and tested.
+The levels are the moments of the story, top to bottom: the hour, one auction's close, the next gate. Every
+variable is in exactly one; an arrow goes from an earlier level to a later one, never within one, and the tool
+refuses a spec that breaks this. Two variables of one level that move together, the volume and the price an auction
+cleared at, are joined by `a <-> b`: a shared cause not in the data, drawn dashed. Take the order from the project's
+causal model when it has one, else from time: a cause comes before its effect; a root, such as the hour of day, has
+no cause in the data. Variables that belong in the graph but are not yet columns, the hour, the weekday, go into the
+sample space as derived variables (`expr`) so they can be drawn and tested.
 
 A pair with no arrow is a claim too: that the two have nothing to do with each other except through the arrows
 drawn. The page lists every such claim as an implied independence, `x ⊥ y | z`, tests it on the data, and says

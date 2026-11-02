@@ -6,7 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
-from structured_explore import concepts, grammar
+from structured_explore import concepts, grammar, graph
 from structured_explore.events import Events
 from structured_explore.graph import Independence
 from structured_explore.results import Answer
@@ -31,7 +31,8 @@ def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: E
                        "expr": c.variable.expr, "defined": c.defined, "distinct": c.distinct, "low": c.low,
                        "high": c.high} for c in obs.variables],
         "raw": {"columns": cols, "rows": [[str(c) if c is not None else "" for c in r] for r in rows]},
-        "graph": {"edges": [list(e) for e in spec.graph.edges], "notes": spec.graph.notes,
+        "graph": {"edges": [list(e) for e in spec.graph.edges], "latent": [list(e) for e in spec.graph.latent],
+                  "levels": graph.levels(spec.graph, [v.column for v in spec.variables]), "notes": spec.graph.notes,
                   "independencies": [i.to_dict() for i in independencies]} if spec.graph else None,
         "events": [{"where": e.where, "meaning": e.meaning, "defined_when": e.defined,
                     "true": ev.true(e.where), "N": ev.N - ev.undefined(e.where), "undefined": ev.undefined(e.where)}
