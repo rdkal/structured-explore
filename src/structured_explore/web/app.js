@@ -148,9 +148,14 @@ function dag(g) {
   let x = pad;
   layers.forEach((ns, i) => { colX[i] = x; x += Math.max(...ns.map(width)) + 70; });
   const rows = Math.max(1, ...layers.map((l) => l.length));
+  // An arrow that skips a layer is lifted into an arc above the row, higher the more it skips, so arrows do not hide
+  // each other when the graph is a chain.
+  const LIFT = 20;
+  const maxSkip = Math.max(0, ...g.edges.map(([a, b]) => layer[b] - layer[a] - 1));
+  const top = pad + maxSkip * LIFT;
   const pos = {};
-  layers.forEach((ns, i) => ns.forEach((n, j) => { pos[n] = { x: colX[i], y: pad + (j + (rows - ns.length) / 2) * rowH, w: width(n) }; }));
-  const H = pad * 2 + rows * rowH + (alone.length ? rowH + 10 : 0);
+  layers.forEach((ns, i) => ns.forEach((n, j) => { pos[n] = { x: colX[i], y: top + (j + (rows - ns.length) / 2) * rowH, w: width(n) }; }));
+  const H = top + pad + rows * rowH + (alone.length ? rowH + 10 : 0);
   const W = Math.max(x - 70 + pad, alone.reduce((a, n) => a + width(n) + 12, pad) + pad, 320);
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
   const defs = s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
@@ -158,8 +163,12 @@ function dag(g) {
   svg.append(defs);
   for (const [a, b] of g.edges) {
     const A = pos[a], B = pos[b];
-    const x1 = A.x + A.w, y1 = A.y + 14, x2 = B.x, y2 = B.y + 14, dx = Math.max((x2 - x1) / 2, 20);
-    svg.append(s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`, "marker-end": "url(#arrow)" }));
+    const skip = layer[b] - layer[a] - 1;
+    const x1 = A.x + A.w, y1 = A.y + (skip ? 0 : 14), x2 = B.x, y2 = B.y + (skip ? 0 : 14), dx = Math.max((x2 - x1) / 2, 20);
+    const lift = skip * LIFT * 1.6;
+    const path = s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + dx} ${y1 - lift}, ${x2 - dx} ${y2 - lift}, ${x2} ${y2}`, "marker-end": "url(#arrow)" });
+    path.append(s("title", {}, `${a} → ${b}`));
+    svg.append(path);
   }
   const node = (n, p, cls) => {
     const v = VARS[n];
@@ -171,7 +180,7 @@ function dag(g) {
   };
   for (const n of linked) svg.append(node(n, pos[n], ""));
   let ax = pad;
-  const ay = pad + rows * rowH + 10;
+  const ay = top + rows * rowH + 10;
   if (alone.length) svg.append(s("text", { x: pad, y: ay - 2, fill: "var(--ink-3)", "font-size": 10 }, "no arrows:"));
   for (const n of alone) { svg.append(node(n, { x: ax, y: ay + 4, w: width(n) }, "alone")); ax += width(n) + 12; }
   return svg;
