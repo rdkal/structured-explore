@@ -27,8 +27,9 @@ no cause in the data. Variables that belong in the graph but are not yet columns
 sample space as derived variables (`expr`) so they can be drawn and tested.
 
 A pair with no arrow is a claim too: that the two have nothing to do with each other except through the arrows
-drawn. The page lists every such claim as an implied independence, `x ⊥ y | z`, tests it on the data, and says
-holds, fails or unclear. A fail is a missing arrow or a missing cause: fix the graph, or say in `notes` why not,
+drawn. The page lists every such claim as an implied independence, `x ⊥ y | z`, tests it on the data with a kernel
+conditional-independence test, which sees any shape of dependence, and says holds, fails or unclear, with the partial
+rank correlation beside it for size and sign. A fail is a missing arrow or a missing cause: fix the graph, or say in `notes` why not,
 before reading any conditional that rests on it.
 
 Each conditional question then gets a mark from the graph: the given is upstream of the event (read as its effect),

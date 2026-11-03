@@ -127,51 +127,76 @@ function legend(a) {
 // --- the graph ---------------------------------------------------------------------------------------------------
 
 function dag(g) {
-  // Rows are the levels, top to bottom; arrows run down from a node's bottom to a later node's top, those that skip
-  // a level bowed sideways so they do not cross the nodes between. Shared causes are dashed arcs over the pair.
-  const width = (n) => n.length * 7.4 + 22, nodeH = 28, rowH = 78, pad = 14, gapX = 28;
-  const rows = g.levels;
-  const rowW = rows.map((r) => r.reduce((w, n) => w + width(n), 0) + gapX * Math.max(r.length - 1, 0));
-  const W = Math.max(...rowW, 240) + pad * 2 + 80;
-  const H = pad * 2 + rows.length * rowH - (rowH - nodeH) + 10;
-  const pos = {}, level = {};
-  rows.forEach((r, i) => {
-    let x = (W - rowW[i]) / 2;
-    for (const n of r) { pos[n] = { x, y: pad + 10 + i * rowH, w: width(n) }; level[n] = i; x += width(n) + gapX; }
-  });
+  // Positions and splines from Graphviz when the build had it (g.layout); else rows by level, arrows bowed aside.
+  const nodeH = 28, width = (n) => n.length * 7.4 + 22;
+  let W, H, pos = {}, paths = [];
+  if (g.layout) {
+    W = g.layout.w; H = g.layout.h;
+    for (const [n, [x, y, w, h]] of Object.entries(g.layout.nodes)) pos[n] = { x: x - w / 2, y: y - h / 2, w, h };
+    for (const e of g.layout.edges) {
+      const p = e.points;
+      let d = `M ${p[0][0]} ${p[0][1]}`;
+      for (let i = 1; i + 2 < p.length; i += 3) d += ` C ${p[i][0]} ${p[i][1]}, ${p[i + 1][0]} ${p[i + 1][1]}, ${p[i + 2][0]} ${p[i + 2][1]}`;
+      paths.push({ a: e.a, b: e.b, d, latent: g.latent.some(([x, y]) => (x === e.a && y === e.b) || (x === e.b && y === e.a)) });
+    }
+  } else {
+    const rowH = 78, pad = 14, gapX = 28, rows = g.levels;
+    const rowW = rows.map((r) => r.reduce((w, n) => w + width(n), 0) + gapX * Math.max(r.length - 1, 0));
+    W = Math.max(...rowW, 240) + pad * 2 + 80;
+    H = pad * 2 + rows.length * rowH - (rowH - nodeH) + 10;
+    const level = {};
+    rows.forEach((r, i) => { let x = (W - rowW[i]) / 2; for (const n of r) { pos[n] = { x, y: pad + 10 + i * rowH, w: width(n), h: nodeH }; level[n] = i; x += width(n) + gapX; } });
+    let side = 1;
+    for (const [a, b] of g.edges) {
+      const A = pos[a], B = pos[b];
+      if (!A || !B) continue;
+      const skip = level[b] - level[a] - 1, x1 = A.x + A.w / 2, y1 = A.y + nodeH, x2 = B.x + B.w / 2, y2 = B.y;
+      const bow = skip ? side * (34 + 26 * skip) : 0;
+      if (skip) side = -side;
+      const dy = (y2 - y1) / 2;
+      paths.push({ a, b, d: `M ${x1} ${y1} C ${x1 + bow} ${y1 + dy}, ${x2 + bow} ${y2 - dy}, ${x2} ${y2}`, latent: false });
+    }
+    for (const [a, b] of g.latent) {
+      const A = pos[a], B = pos[b];
+      if (!A || !B) continue;
+      const x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y = Math.min(A.y, B.y);
+      paths.push({ a, b, d: `M ${x1} ${y} C ${x1} ${y - 26}, ${x2} ${y - 26}, ${x2} ${y}`, latent: true });
+    }
+  }
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
   svg.append(s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
-    s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "var(--ink-2)" }))));
-  let side = 1;
-  for (const [a, b] of g.edges) {
-    const A = pos[a], B = pos[b];
-    if (!A || !B) continue;
-    const skip = level[b] - level[a] - 1;
-    const x1 = A.x + A.w / 2, y1 = A.y + nodeH, x2 = B.x + B.w / 2, y2 = B.y;
-    const bow = skip ? side * (34 + 26 * skip) : 0;
-    if (skip) side = -side;
-    const dy = (y2 - y1) / 2;
-    const path = s("path", { class: "edge", d: `M ${x1} ${y1} C ${x1 + bow} ${y1 + dy}, ${x2 + bow} ${y2 - dy}, ${x2} ${y2}`, "marker-end": "url(#arrow)" });
-    path.append(s("title", {}, `${a} → ${b}`));
-    svg.append(path);
+    s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "context-stroke" }))));
+  const edgeEls = [];
+  for (const p of paths) {
+    const el = s("path", { class: `edge ${p.latent ? "latent" : ""}`, d: p.d, "marker-end": "url(#arrow)", "marker-start": p.latent ? "url(#arrow)" : null });
+    el.append(s("title", {}, p.latent ? `${p.a} <-> ${p.b}: a shared cause not in the data` : `${p.a} → ${p.b}`));
+    el.dataset.a = p.a; el.dataset.b = p.b;
+    svg.append(el);
+    edgeEls.push(el);
   }
-  for (const [a, b] of g.latent) {
-    const A = pos[a], B = pos[b];
-    if (!A || !B) continue;
-    const x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y = Math.min(A.y, B.y);
-    const path = s("path", { class: "edge latent", d: `M ${x1} ${y} C ${x1} ${y - 26}, ${x2} ${y - 26}, ${x2} ${y}`, "marker-end": "url(#arrow)", "marker-start": "url(#arrow)" });
-    path.append(s("title", {}, `${a} <-> ${b}: a shared cause not in the data`));
-    svg.append(path);
-  }
+  const list = h("p", { class: "arrows small" }, "Hover a node for its arrows.");
+  const nodeEls = {};
   for (const n of Object.keys(pos)) {
     const p = pos[n], v = VARS[n];
     const gEl = s("g", { class: `node ${v && v.expr ? "derived" : ""}`, transform: `translate(${p.x} ${p.y})` });
-    gEl.append(s("rect", { width: p.w, height: nodeH }), s("text", { x: p.w / 2, y: 18, "text-anchor": "middle" }, n));
+    gEl.append(s("rect", { width: p.w, height: p.h }), s("text", { x: p.w / 2, y: p.h / 2 + 4, "text-anchor": "middle" }, n));
     gEl.append(s("title", {}, v ? `${n}: ${v.meaning} (${v.observed})` : n));
     gEl.addEventListener("click", () => openPane("variable", { variable: v }));
+    gEl.addEventListener("mouseenter", () => focus(n));
+    gEl.addEventListener("mouseleave", () => focus(null));
     svg.append(gEl);
+    nodeEls[n] = gEl;
   }
-  return svg;
+  function focus(n) {
+    svg.classList.toggle("dim", n != null);
+    for (const el of edgeEls) el.classList.toggle("lit", n != null && (el.dataset.a === n || el.dataset.b === n));
+    for (const [m, el] of Object.entries(nodeEls)) el.classList.toggle("lit", n != null && (m === n || paths.some((p) => (p.a === n && p.b === m) || (p.b === n && p.a === m))));
+    if (n == null) { list.textContent = "Hover a node for its arrows."; return; }
+    const from = paths.filter((p) => p.b === n && !p.latent).map((p) => p.a), to = paths.filter((p) => p.a === n && !p.latent).map((p) => p.b);
+    const with_ = paths.filter((p) => p.latent && (p.a === n || p.b === n)).map((p) => (p.a === n ? p.b : p.a));
+    list.replaceChildren(code(n), from.length ? ` ← ${from.join(", ")}` : " ← nothing in the data", to.length ? `   ${n} → ${to.join(", ")}` : "", with_.length ? `   <-> ${with_.join(", ")}` : "");
+  }
+  return h("div", {}, svg, list);
 }
 
 const VERDICT = { holds: ["✓", "holds"], fails: ["✗", "fails"], unclear: ["~", "unclear"], untested: ["–", "untested"] };
@@ -182,13 +207,14 @@ function independencies(g) {
     const [glyph, word] = VERDICT[i.verdict];
     return h("tr", { onclick: () => openPane("independence", { independence: i }), style: "cursor:help" },
       h("td", { class: "key" }, `${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`),
+      h("td", { class: "num" }, i.p == null ? "–" : i.p < 0.001 ? "<0.001" : i.p.toFixed(3)),
       h("td", { class: "num" }, i.r == null ? "–" : `${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}]`),
       h("td", { class: "num" }, i.n || "–"),
       h("td", { class: `num verdict-${i.verdict}` }, `${glyph} ${word}`));
   });
   const n = g.independencies.length, fails = g.independencies.filter((i) => i.verdict === "fails").length;
   return h("details", { open: fails > 0 }, h("summary", {}, `${n} implied independencies, ${fails} fail`, fails ? "" : ": the data does not contradict the graph"),
-    h("table", { class: "ind" }, h("thead", {}, h("tr", {}, h("th", {}, term("implied", "independence")), h("th", { class: "num" }, "partial r"), h("th", { class: "num" }, "n"), h("th", { class: "num" }, "verdict"))),
+    h("table", { class: "ind" }, h("thead", {}, h("tr", {}, h("th", {}, term("implied", "independence")), h("th", { class: "num" }, "kernel p"), h("th", { class: "num" }, "partial r"), h("th", { class: "num" }, "n"), h("th", { class: "num" }, "verdict"))),
       h("tbody", {}, ...rows)));
 }
 
@@ -296,8 +322,8 @@ function here(id, ctx) {
   }
   if (i) {
     const [, word] = VERDICT[i.verdict];
-    return h("p", {}, code(`${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`), i.r == null ? ": not tested, a variable is not a number."
-      : `: partial rank correlation ${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}] over ${i.n} outcomes, so it ${word}.`);
+    return h("p", {}, code(`${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`), i.p == null ? ": not tested, a variable is not a number."
+      : `: the kernel test on ${i.n_kernel} of the ${i.n} outcomes gives p = ${i.p < 0.001 ? "<0.001" : i.p.toFixed(3)}, so it ${word}. What is left is a partial rank correlation of ${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}].`);
   }
   if (v) {
     const N = data.sample_space.N;

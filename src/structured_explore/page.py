@@ -33,6 +33,8 @@ def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: E
         "raw": {"columns": cols, "rows": [[str(c) if c is not None else "" for c in r] for r in rows]},
         "graph": {"edges": [list(e) for e in spec.graph.edges], "latent": [list(e) for e in spec.graph.latent],
                   "levels": graph.levels(spec.graph, [v.column for v in spec.variables]), "notes": spec.graph.notes,
+                  "layout": graph.layout(spec.graph, [v.column for v in spec.variables],
+                                         graph.levels(spec.graph, [v.column for v in spec.variables])),
                   "independencies": [i.to_dict() for i in independencies]} if spec.graph else None,
         "events": [{"where": e.where, "meaning": e.meaning, "defined_when": e.defined,
                     "true": ev.true(e.where), "N": ev.N - ev.undefined(e.where), "undefined": ev.undefined(e.where)}

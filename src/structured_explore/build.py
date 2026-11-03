@@ -32,7 +32,8 @@ def build(spec: Spec, out: Path, con: duckdb.DuckDBPyConnection | None = None, s
     independencies = []
     if spec.graph:
         arrays = space.numeric(con, columns)
-        independencies = [graph.test(arrays, x, y, z) for x, y, z in graph.implied(spec.graph, columns)]
+        rng = np.random.default_rng(seed)
+        independencies = [graph.test(arrays, x, y, z, rng) for x, y, z in graph.implied(spec.graph, columns)]
     rng = np.random.default_rng(seed)
     answers = []
     for q in spec.questions:

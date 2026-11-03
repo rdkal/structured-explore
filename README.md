@@ -33,10 +33,13 @@ inlined in it, so it needs no server.
 
 `graph.levels` put the variables in time order, a list per level, and `graph.edges` are the author's arrows, cause ->
 effect, always from an earlier level to a later one; `a <-> b` joins two that move together through a cause not in the
-data. The page draws them top to bottom, and for every two variables with no link it finds the smallest set that d-separates them, tests that independence on the data by
-partial rank correlation, and says holds, fails or unclear. Each conditional answer is marked with where its given
-stands to its event in the graph: upstream, downstream, a common cause only, or unconnected. A fail is a missing arrow;
-an outside-the-null answer between unconnected variables is a missing path. The graph is tested, never confirmed.
+data. The page draws them top to bottom, laid out by Graphviz when `dot` is installed, with every node's arrows
+highlighted and listed on hover. For every two variables with no link it finds the smallest set that d-separates them
+and tests that independence on the data with a kernel conditional-independence test, RCoT (random Fourier features,
+linear time, on 2000 outcomes), which sees any shape of dependence; it says holds, fails or unclear, with the partial
+rank correlation beside it for size and sign. Each conditional answer is marked with where its given stands to its
+event in the graph: upstream, downstream, a common cause only, or unconnected. A fail is a missing arrow; an
+outside-the-null answer between unconnected variables is a missing path. The graph is tested, never confirmed.
 
 ## Learning as you read
 

@@ -112,8 +112,9 @@ def test_graph_independencies(built):
     assert ind[frozenset("xs")] == "holds"
     assert ind[frozenset("cy")] == "holds"
     assert ind[frozenset("xky")] == "holds"         # x ⊥ k | y
-    # Every implied independence holds in data drawn from the graph.
-    assert set(ind.values()) == {"holds"}, ind
+    # No implied independence fails in data drawn from the graph.
+    assert "fails" not in ind.values(), ind
+    assert all(i["p"] is not None and i["n_kernel"] == 2000 for i in d["graph"]["independencies"])
 
 
 def test_graph_catches_a_missing_arrow(tmp_path):
@@ -215,3 +216,38 @@ def test_levels_and_shared_causes(tmp_path):
     assert graph.implied(g, ["a", "b", "c"]) == [("a", "c", [])]
     # Levels worked out from the arrows when the spec gives none.
     assert graph.levels(Graph([("a", "b"), ("b", "c")]), ["a", "b", "c", "d"]) == [["a", "d"], ["b"], ["c"]]
+
+
+def test_kernel_sees_a_shape():
+    # y is a U of x: no rank correlation, but not independent. The kernel test must say so.
+    from structured_explore import graph
+    rng = np.random.default_rng(3)
+    x = rng.random(4000)
+    arrays = {"x": x, "y": (x - 0.5) ** 2 + rng.normal(0, 0.02, 4000), "z": rng.random(4000)}
+    u = graph.test(arrays, "x", "y", [], rng)
+    assert u.verdict == "fails" and abs(u.r) < 0.1
+    # and holds for what is independent, given something or not
+    assert graph.test(arrays, "x", "z", [], rng).verdict == "holds"
+    assert graph.test(arrays, "x", "z", ["y"], rng).verdict == "holds"
+
+
+def test_gamma_cdf():
+    from structured_explore.graph import gamma_cdf
+    # shape 1 is the exponential; shape 5 at its mean is about 0.56
+    assert abs(gamma_cdf(1.0, 1.0) - (1 - np.exp(-1))) < 1e-9
+    assert abs(gamma_cdf(5.0, 5.0) - 0.5595) < 1e-3
+    assert gamma_cdf(0, 2) == 0 and gamma_cdf(100, 2) > 0.9999
+
+
+def test_layout(built):
+    import json
+    import shutil
+    d = json.loads((built[1] / "explore.json").read_text())
+    lay = d["graph"]["layout"]
+    if shutil.which("dot") is None:
+        assert lay is None
+        return
+    assert set(lay["nodes"]) == set("xyzctswk") and len(lay["edges"]) == 6
+    assert all(len(e["points"]) >= 4 and len(e["points"]) % 3 == 1 for e in lay["edges"])
+    ys = {n: p[1] for n, p in lay["nodes"].items()}
+    assert ys["x"] < ys["y"] < ys["k"] and abs(ys["x"] - ys["w"]) < 1   # levels as ranks
