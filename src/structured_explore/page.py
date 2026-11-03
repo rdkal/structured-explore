@@ -18,7 +18,7 @@ WEB = Path(__file__).parent / "web"
 
 def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: Events, answers: list[Answer],
          independencies: list[Independence], table: dict[tuple, Independence] | None = None,
-         found: dict | None = None) -> dict:
+         candidates: list[dict] = ()) -> dict:
     s = spec.sample_space
     cols, rows = raw
     columns = [v.column for v in spec.variables]
@@ -37,9 +37,9 @@ def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: E
         "graph": {"edges": [list(e) for e in spec.graph.edges], "latent": [list(e) for e in spec.graph.latent],
                   "levels": lv, "notes": spec.graph.notes, "layout": graph.layout(spec.graph, columns, lv),
                   "independencies": [i.to_dict() for i in independencies],
-                  # Every pair given every set the page may ask about, and the sparsest graph those tests allow.
+                  # Every pair given every set the page may ask about, and the graphs those tests allow.
                   "table": [i.to_dict() for i in (table or {}).values()], "max_given": graph.MAX_GIVEN,
-                  "found": found} if spec.graph else None,
+                  "candidates": list(candidates)} if spec.graph else None,
         "events": [{"where": e.where, "meaning": e.meaning, "defined_when": e.defined,
                     "true": ev.true(e.where), "N": ev.N - ev.undefined(e.where), "undefined": ev.undefined(e.where)}
                    for e in spec.events],

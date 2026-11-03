@@ -29,13 +29,13 @@ def build(spec: Spec, out: Path, con: duckdb.DuckDBPyConnection | None = None, s
     raw = space.raw_rows(con)
     ev = events.evaluate(con, spec)
     columns = [v.column for v in spec.variables]
-    independencies, tbl, found = [], {}, None
+    independencies, tbl, cands = [], {}, []
     if spec.graph:
         arrays = space.numeric(con, columns)
         lv = graph.levels(spec.graph, columns)
         tbl = graph.table(arrays, columns, lv, np.random.default_rng(seed))
         independencies = [tbl[(x, y, tuple(z))] for x, y, z in graph.implied(spec.graph, columns)]
-        found = graph.discover(tbl, columns, lv)
+        cands = graph.graphs(tbl, columns, lv)
     rng = np.random.default_rng(seed)
     answers = []
     for q in spec.questions:
@@ -60,7 +60,7 @@ def build(spec: Spec, out: Path, con: duckdb.DuckDBPyConnection | None = None, s
             a.relation = graph.relation(spec.graph, graph.variables_in(q.event, columns),
                                         graph.variables_in(q.given, columns))
         answers.append(a)
-    page.write(out, page.data(spec, obs, raw, ev, answers, independencies, tbl, found))
+    page.write(out, page.data(spec, obs, raw, ev, answers, independencies, tbl, cands))
     return answers
 
 

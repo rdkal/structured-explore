@@ -32,13 +32,15 @@ conditional-independence test, which sees any shape of dependence, and says hold
 rank correlation beside it for size and sign. A fail is a missing arrow or a missing cause: fix the graph, or say in `notes` why not,
 before reading any conditional that rests on it.
 
-Beside the author's graph the page draws what the data needs: the sparsest graph over the same levels that fails none
-of its implied independencies, found from a table of every pair tested given every set of up to three earlier
-variables. Red links are ones the author's graph lacks; a list names the author's links the data does not need; a
-same-level pair that stays dependent is proposed as a shared cause `a <-> b`. The reader can edit the graph in the
-page, every verdict read from the table, and copy the result back into the spec from "As yaml". Build once with a
-first guess, read what the data needs, then write the graph that both the story and the data allow, saying in
-`notes` where they differ and why.
+Beside the author's graph the page lists candidates the data allows, found from a table of every pair tested given
+every set of up to three earlier variables: a sparse graph that fails none of its implied independencies, for each
+of its links the same search without that link, a strict and a lenient one. Pick one and it is drawn beside the
+author's, red links the author lacks, and a list of the author's links it does without; a same-level pair that stays
+dependent is proposed as a shared cause `a <-> b`. A "Without x -> y" candidate with no fail and as many links means
+the data cannot tell that arrow from its replacement, so the story must. The reader can edit the graph in the page,
+every verdict read from the table, and copy the result back into the spec from "As yaml". Build once with a first
+guess, read the candidates, then write the graph that both the story and the data allow, saying in `notes` where they
+differ and why.
 
 Each conditional question then gets a mark from the graph: the given is upstream of the event (read as its effect),
 downstream (reads the effect backwards), a common cause only (association), or unconnected (an answer outside the

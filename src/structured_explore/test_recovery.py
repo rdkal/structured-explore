@@ -118,11 +118,20 @@ def test_graph_independencies(built):
 def test_discovery_finds_the_planted_graph(built):
     # From the table alone, the sparsest graph that fails none of its implied independencies is the one simulated.
     import json
-    f = json.loads((built[1] / "explore.json").read_text())["graph"]["found"]
+    cands = json.loads((built[1] / "explore.json").read_text())["graph"]["candidates"]
+    f = cands[0]
+    assert f["name"] == "Found" and f["fails"] == []
     assert {(e["a"], e["b"]) for e in f["edges"]} == set(spec(Path("x")).graph.edges)
     assert f["latent"] == []
     assert all(e["without"]["verdict"] == "fails" for e in f["edges"])
     assert all(s["verdict"] != "fails" for s in f["separated"])
+    # The alternatives are distinct graphs, each named and noted; one without a planted arrow must either keep the
+    # dependence through other links or leave a fail, never both fewer links and none failing.
+    keys = [frozenset(frozenset((e["a"], e["b"])) for e in c["edges"] + c["latent"]) for c in cands]
+    assert len(set(keys)) == len(keys) and all(c["name"] and c["note"] for c in cands)
+    for c in cands[1:]:
+        if c["name"].startswith("Without"):
+            assert c["fails"] or len(c["edges"]) + len(c["latent"]) >= len(f["edges"]), c["name"]
 
 
 def test_discovery_proposes_a_shared_cause(tmp_path):
@@ -138,7 +147,7 @@ def test_discovery_proposes_a_shared_cause(tmp_path):
              graph=Graph(levels=[["a", "b", "c"]]), events=[Event("a > 0")], questions=[Question("marginal", "a > 0")])
     build(s, tmp_path / "out")
     import json
-    f = json.loads((tmp_path / "out" / "explore.json").read_text())["graph"]["found"]
+    f = json.loads((tmp_path / "out" / "explore.json").read_text())["graph"]["candidates"][0]
     assert f["edges"] == [] and [(e["a"], e["b"]) for e in f["latent"]] == [("a", "b")]
 
 
@@ -215,7 +224,7 @@ def test_every_kind_is_explained():
     ids = {c.id for c in concepts.all()}
     assert len(ids) == len(concepts.all())
     for kind in [*questions.QUESTIONS, *nulls.NULLS, *CHECKS, *{f.__name__ for f in figures.FIGURES.values()}, "lineup",
-                 "dag", "found", "shared-cause", "independence", "relation"]:
+                 "dag", "found", "candidates", "shared-cause", "independence", "relation"]:
         assert kind in ids, kind
     for c in concepts.all():
         for s in c.see:

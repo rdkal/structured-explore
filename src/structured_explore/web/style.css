@@ -139,6 +139,11 @@ button.term { border: 0; background: none; padding: 0; font: inherit; color: inh
 .dags > div { min-width: 0; }
 .dags h3 { font-size: 0.85rem; color: var(--ink-2); margin: 0 0 0.3rem; font-weight: 600; }
 @media (max-width: 700px) { .dags { grid-template-columns: 1fr; } }
+.cands tbody tr { cursor: pointer; }
+.cands tbody tr:hover { background: var(--surface-2); }
+.cands tr.picked td { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--blue); }
+.cands td .small { color: var(--ink-3); }
+.cands button.quiet { padding: 0 0.3rem; }
 .diff p { margin: 0.3rem 0; }
 .diff .bad { color: var(--bad); }
 details.yaml { font-size: 0.85rem; }

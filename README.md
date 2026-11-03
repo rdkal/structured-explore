@@ -43,10 +43,14 @@ confirmed.
 The build does not stop at the author's graph. It tests every pair given every set of up to three variables from
 their levels or earlier and keeps the table, so the page can judge any graph over these levels without the data:
 click a node, then another, to add or remove the link between them, or click a link to remove it, and the
-independencies and verdicts follow at once. From the same table the build finds the sparsest graph that fails none of
-the independencies it implies, forward from no links and then pruned, and draws it beside the author's: red for a link
-the author lacks, and a list of the author's links the data does not need. A pair within one level that stays
-dependent is proposed as a shared cause, `a <-> b`, since no arrow may go there. Each conditional answer is marked
+independencies and verdicts follow at once. From the same table the build finds the graphs the data allows and lists
+them as candidates beside the author's: a sparse graph that fails none of the independencies it implies, found
+forward from no links and then pruned; for each of its links, the same search made to do without that link, which
+shows what else can carry the dependence or that nothing can; a strict one fixing only fails below p 0.001; and a
+lenient one fixing the unclear too. Pick a candidate and it is drawn beside the author's graph, red for a link the
+author lacks, with a list of the author's links it does without; "Use" makes it the graph to edit on. A pair within
+one level that stays dependent is proposed as a shared cause, `a <-> b`, since no arrow may go there.
+Each conditional answer is marked
 with where its given stands to its event in the author's graph: upstream, downstream, a common cause only, or
 unconnected.
 

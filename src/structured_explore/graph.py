@@ -2,13 +2,14 @@
 edges: ancestors and descendants; d-separation; the conditional independencies the graph implies, one per pair of
 variables with no arrow between them, with the smallest set that separates them. The table: a kernel test of every
 pair given every set of up to MAX_GIVEN variables from their level or earlier, so the page can judge any graph over
-these levels without the data. From the table, the sparsest graph the data allows; and how a question's given
-stands to its event."""
+these levels without the data. From the table, the graphs the data allows, a sparse one and its alternatives, for the reader to pick
+from; and how a question's given stands to its event."""
 
 import itertools
 import re
 import subprocess
 from dataclasses import dataclass, field
+from typing import Callable
 from math import atanh, exp, lgamma, log, pi, sqrt, tanh
 
 import numpy as np
@@ -144,18 +145,21 @@ def table(arrays: dict[str, np.ndarray | None], nodes: list[str], lv: list[list[
             for x, y in itertools.combinations(nodes, 2) for z in sets(nodes, lv, x, y)}
 
 
-def discover(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[str]]) -> dict:
-    """The sparsest graph over these levels that fails none of the independencies it implies, judged as the page
+def discover(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[str]],
+             bad: "Callable[[Independence], bool]" = lambda i: i.verdict == "fails",
+             forbid: frozenset[frozenset[str]] = frozenset()) -> dict:
+    """A sparse graph over these levels that fails none of the independencies it implies, judged as the page
     judges any graph: by the table's verdict on each pair's smallest separating set. Forward from no links: while
-    an implied independence fails, link the pair whose fails hardest. Then backward: drop any link whose absence
-    brings no fail, the last added first. A link across levels is an arrow from the earlier; within a level it is
-    a shared cause, a <-> b. Each link keeps the independence that would fail without it."""
+    an implied independence is bad, link the pair whose is worst. Then backward: drop any link whose absence
+    brings no new bad one, the last added first. A link across levels is an arrow from the earlier; within a level it
+    is a shared cause, a <-> b. Each link keeps the independence that would fail without it. A forbidden pair is
+    never linked, so what fails because of it stays in `fails`, which always counts by the page's rule, p < 0.01."""
     depth = {n: i for i, level in enumerate(lv) for n in level}
     g = Graph(levels=lv)
 
     def fails(g: Graph) -> list[tuple[str, str, "Independence"]]:
         out = [(x, y, tbl[(x, y, tuple(z))]) for x, y, z in implied(g, nodes)]
-        return sorted([f for f in out if f[2].verdict == "fails"], key=lambda f: (f[2].p, -abs(f[2].r or 0)))
+        return sorted([f for f in out if bad(f[2])], key=lambda f: (f[2].p, -abs(f[2].r or 0)))
 
     def links(g: Graph) -> list[tuple[str, str]]:
         return g.edges + g.latent
@@ -169,13 +173,14 @@ def discover(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[s
     def without(g: Graph, link: tuple[str, str]) -> Graph:
         return Graph([e for e in g.edges if e != link], lv, [e for e in g.latent if e != link])
 
-    while (bad := fails(g)):
-        add(g, bad[0][0], bad[0][1])
+    while (fixable := [f for f in fails(g) if frozenset(f[:2]) not in forbid]):
+        add(g, fixable[0][0], fixable[0][1])
+    left = {frozenset(f[:2]) for f in fails(g)}
     why: dict[tuple[str, str], "Independence"] = {}
     for link in reversed(links(g)):
-        bad = fails(without(g, link))
-        if bad:
-            why[link] = bad[0][2]
+        new = [f for f in fails(without(g, link)) if frozenset(f[:2]) not in left]
+        if new:
+            why[link] = new[0][2]
         else:
             g = without(g, link)
 
@@ -183,8 +188,35 @@ def discover(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[s
         i = why[link]
         return {"a": link[0], "b": link[1], "p": i.p, "without": i.to_dict()}
 
-    separated = [tbl[(x, y, tuple(z))].to_dict() for x, y, z in implied(g, nodes)]
-    return {"edges": [out(e) for e in g.edges], "latent": [out(e) for e in g.latent], "separated": separated}
+    separated = [tbl[(x, y, tuple(z))] for x, y, z in implied(g, nodes)]
+    return {"edges": [out(e) for e in g.edges], "latent": [out(e) for e in g.latent],
+            "separated": [i.to_dict() for i in separated], "fails": [i.to_dict() for i in separated if i.verdict == "fails"]}
+
+
+def graphs(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[str]]) -> list[dict]:
+    """Graphs the data allows, for the reader to pick from: the search's; for each of its links, the search without
+    it, which says what else can carry the same dependence; one that fixes only fails below p 0.001; and one that
+    fixes the unclear too. Distinct graphs only, each named and with a note on what made it. The search is not
+    globally minimal, so another candidate can be sparser with no fail; the page sorts them by fails, then links."""
+    key = lambda c: frozenset(frozenset((e["a"], e["b"])) for e in c["edges"] + c["latent"])
+    found = discover(tbl, nodes, lv)
+    out = [found | {"name": "Found", "note": "the search's own result: from no links, fixing the hardest fail first, then pruned"}]
+    seen = {key(found)}
+
+    def keep(c: dict, name: str, note: str) -> None:
+        if key(c) not in seen:
+            seen.add(key(c))
+            out.append(c | {"name": name, "note": note})
+
+    for e in found["edges"] + found["latent"]:
+        link = f"{e['a']} {'<->' if (e['a'], e['b']) in [(l['a'], l['b']) for l in found['latent']] else '->'} {e['b']}"
+        keep(discover(tbl, nodes, lv, forbid=frozenset([frozenset((e["a"], e["b"]))])),
+             f"Without {link}", f"the same search, never linking {e['a']} and {e['b']}")
+    keep(discover(tbl, nodes, lv, bad=lambda i: i.p is not None and i.p < 0.001),
+         "Strict", "fixes only the independencies that fail below p 0.001")
+    keep(discover(tbl, nodes, lv, bad=lambda i: i.verdict in ("fails", "unclear")),
+         "Lenient", "fixes the unclear independencies too, p below 0.05")
+    return out
 
 
 @dataclass
@@ -408,10 +440,10 @@ EXPLAIN = {
         "data does not need: some set separates its ends.",
         "The graph is an assumption the data can contradict but not confirm: many graphs imply the same "
         "independencies. The questions' marks follow the spec's graph, not an edit.",
-        see=["found", "independence", "relation", "conditional"]),
+        see=["found", "candidates", "independence", "relation", "conditional"]),
     "found": Concept(
         "found", "What the data needs",
-        "The sparsest graph over these levels that fails none of the independencies it implies, drawn beside yours.",
+        "The search's graph over these levels: no link that is not needed, no independency that fails, the first candidate.",
         "The build tests every pair of variables given every set of up to three others from their levels or "
         "earlier, with the kernel test, and keeps the table. A graph is judged as yours is: every pair without a "
         "link, given the smallest set that separates them in it. Then, from no links: while some implied "
@@ -420,13 +452,31 @@ EXPLAIN = {
         "where no arrow may go, a shared cause a <-> b. Because the levels fix every arrow's direction, there is "
         "no family of equivalent graphs to choose from.",
         "Red links are ones your graph lacks; hover one for the independence that fails without it. Beneath, the "
-        "links yours has that the data does not need, with the set that separates them in the data's graph. "
-        "\"Use the data's graph\" loads it into yours.",
-        "Sparse by construction, not unique: another order of adding could end elsewhere. The tests run on 2000 "
-        "outcomes drawn from hours that are not independent, so a fail can be an eager test and a tiny dependence "
-        "can pass. A dependence across levels that no set removes may still be a shared cause rather than an "
-        "arrow: observational data alone cannot tell them apart, only a same-level pair is unambiguous.",
-        look="volume_1 -> day_ahead_se3 (p 0.005)", see=["dag", "shared-cause", "independence"]),
+        "links yours has that the candidate does not, with the set that separates them in it. "
+        "\"Use\" loads the candidate into yours.",
+        "Sparse by construction, neither unique nor the sparsest possible: another order of adding can end elsewhere, "
+        "sometimes with fewer links, which is what the other candidates show. The tests run on 2000 outcomes drawn from hours that are not independent, so a fail can "
+        "be an eager test and a tiny dependence can pass. A dependence across levels that no set removes may still "
+        "be a shared cause rather than an arrow: observational data alone cannot tell them apart, only a same-level "
+        "pair is unambiguous.",
+        look="volume_1 -> day_ahead_se3 (p 0.005)", see=["candidates", "dag", "shared-cause", "independence"]),
+    "candidates": Concept(
+        "candidates", "Candidate graphs",
+        "Graphs over these levels the data allows, listed to pick from and compare with yours.",
+        "The spec's graph, then what the build found from the table: the search's graph, fixing the hardest fail first and pruning what fails nothing without it, "
+        "implied independencies, \"Found\"; for each of its links, the same search never linking that pair, which shows "
+        "what else can carry the same dependence, or that nothing can; a strict one that fixes only the fails below "
+        "p 0.001; and a lenient one that fixes the unclear too. Each is judged in the page as yours is, so its "
+        "fails and separations are the page's own, and the list is sorted by fails, then links. Only distinct graphs "
+        "are kept.",
+        "Click a row to draw that candidate beside yours, with the links you lack in red and yours it does without "
+        "dotted; \"vs yours\" counts them. A \"Without x -> y\" candidate with no fail and as many links says the "
+        "data cannot tell that arrow from its replacement; one with fails says the link is unavoidable. The strict "
+        "one is what survives a harsher threshold, the lenient one what the data hints at. \"Use\" makes a "
+        "candidate yours, to edit on.",
+        "Candidates are the search's, not all the graphs the data allows: one sparse graph from each starting point, "
+        "not every graph between. None is right by being listed; the levels and the story decide what a link means.",
+        look="Without offered_1 -> price_2 · 18 links, 0 fail · +1 −1", see=["found", "dag", "independence"]),
     "shared-cause": Concept(
         "shared-cause", "Shared cause a <-> b",
         "Two variables of one level that move together through something not in the data.",
@@ -437,7 +487,7 @@ EXPLAIN = {
         "be, the season, the hydro situation, a bid stack, and whether it can be added as a variable.",
         "The data says only that something joins them, not what. Across levels the same dependence looks like an "
         "arrow, so a shared cause there goes unseen.",
-        look="volume_1 <-> price_1", see=["found", "dag"]),
+        look="volume_1 <-> price_1", see=["found", "candidates", "dag"]),
     "independence": Concept(
         "independence", "Implied independence",
         "A pair of variables the graph says are independent, once some others are held fixed, and whether the data "
