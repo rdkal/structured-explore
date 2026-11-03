@@ -1,7 +1,9 @@
 """The graph: the author's arrows between the variables, what they imply, and whether the data agrees. From the
 edges: ancestors and descendants; d-separation; the conditional independencies the graph implies, one per pair of
-variables with no arrow between them, with the smallest set that separates them; a test of each on Ω by partial rank
-correlation; and how a question's given stands to its event."""
+variables with no arrow between them, with the smallest set that separates them. The table: a kernel test of every
+pair given every set of up to MAX_GIVEN variables from their level or earlier, so the page can judge any graph over
+these levels without the data. From the table, the sparsest graph the data allows; and how a question's given
+stands to its event."""
 
 import itertools
 import re
@@ -107,20 +109,82 @@ def d_separated(g: Graph, x: str, y: str, z: set[str]) -> bool:
     return True
 
 
+def candidates(nodes: list[str], lv: list[list[str]], x: str, y: str) -> list[str]:
+    """The variables a set separating x and y may be drawn from: those of their levels or earlier. A separating set
+    can always be cut down to ancestors of x and y, and an arrow never comes from a later level."""
+    depth = {n: i for i, level in enumerate(lv) for n in level}
+    top = max(depth[x], depth[y])
+    return [n for n in nodes if n not in (x, y) and depth[n] <= top]
+
+
+def sets(nodes: list[str], lv: list[list[str]], x: str, y: str) -> list[tuple[str, ...]]:
+    """Every set of up to MAX_GIVEN candidates, smallest first, in a fixed order the page repeats."""
+    c = candidates(nodes, lv, x, y)
+    return [z for k in range(0, min(MAX_GIVEN, len(c)) + 1) for z in itertools.combinations(c, k)]
+
+
 def implied(g: Graph, nodes: list[str]) -> list[tuple[str, str, list[str]]]:
     """For every pair of variables with no arrow between them, the smallest set of other variables that separates
     them, as the independence x ⊥ y | z the graph implies; none when no set up to MAX_GIVEN does."""
+    lv = levels(g, nodes)
     out = []
     for x, y in itertools.combinations(nodes, 2):
         if adjacent(g, x, y):
             continue
-        others = [n for n in nodes if n not in (x, y)]
-        for k in range(0, min(MAX_GIVEN, len(others)) + 1):
-            found = next((z for z in itertools.combinations(others, k) if d_separated(g, x, y, set(z))), None)
-            if found is not None:
-                out.append((x, y, list(found)))
-                break
+        found = next((z for z in sets(nodes, lv, x, y) if d_separated(g, x, y, set(z))), None)
+        if found is not None:
+            out.append((x, y, list(found)))
     return out
+
+
+def table(arrays: dict[str, np.ndarray | None], nodes: list[str], lv: list[list[str]],
+          rng: np.random.Generator) -> dict[tuple, "Independence"]:
+    """Every pair of variables tested given every set sets() allows, keyed (x, y, z)."""
+    return {(x, y, z): test(arrays, x, y, list(z), rng)
+            for x, y in itertools.combinations(nodes, 2) for z in sets(nodes, lv, x, y)}
+
+
+def discover(tbl: dict[tuple, "Independence"], nodes: list[str], lv: list[list[str]]) -> dict:
+    """The sparsest graph over these levels that fails none of the independencies it implies, judged as the page
+    judges any graph: by the table's verdict on each pair's smallest separating set. Forward from no links: while
+    an implied independence fails, link the pair whose fails hardest. Then backward: drop any link whose absence
+    brings no fail, the last added first. A link across levels is an arrow from the earlier; within a level it is
+    a shared cause, a <-> b. Each link keeps the independence that would fail without it."""
+    depth = {n: i for i, level in enumerate(lv) for n in level}
+    g = Graph(levels=lv)
+
+    def fails(g: Graph) -> list[tuple[str, str, "Independence"]]:
+        out = [(x, y, tbl[(x, y, tuple(z))]) for x, y, z in implied(g, nodes)]
+        return sorted([f for f in out if f[2].verdict == "fails"], key=lambda f: (f[2].p, -abs(f[2].r or 0)))
+
+    def links(g: Graph) -> list[tuple[str, str]]:
+        return g.edges + g.latent
+
+    def add(g: Graph, x: str, y: str) -> None:
+        if depth[x] == depth[y]:
+            g.latent.append((x, y))
+        else:
+            g.edges.append((x, y) if depth[x] < depth[y] else (y, x))
+
+    def without(g: Graph, link: tuple[str, str]) -> Graph:
+        return Graph([e for e in g.edges if e != link], lv, [e for e in g.latent if e != link])
+
+    while (bad := fails(g)):
+        add(g, bad[0][0], bad[0][1])
+    why: dict[tuple[str, str], "Independence"] = {}
+    for link in reversed(links(g)):
+        bad = fails(without(g, link))
+        if bad:
+            why[link] = bad[0][2]
+        else:
+            g = without(g, link)
+
+    def out(link: tuple[str, str]) -> dict:
+        i = why[link]
+        return {"a": link[0], "b": link[1], "p": i.p, "without": i.to_dict()}
+
+    separated = [tbl[(x, y, tuple(z))].to_dict() for x, y, z in implied(g, nodes)]
+    return {"edges": [out(e) for e in g.edges], "latent": [out(e) for e in g.latent], "separated": separated}
 
 
 @dataclass
@@ -329,17 +393,51 @@ def relation(g: Graph, event: list[str], given: list[str]) -> dict:
 EXPLAIN = {
     "dag": Concept(
         "dag", "The graph",
-        "The author's arrows between the variables: what causes what, drawn top to bottom in time order.",
+        "The arrows between the variables: what causes what, drawn top to bottom in time order, the spec's to begin "
+        "with and yours once you edit it.",
         "Written in the spec as cause -> effect over the variables, which are every column of the outcome, in "
         "levels: a level is a moment, such as one auction's close, and an arrow goes from an earlier level to a "
         "later one, never within one. Two variables of one level that move together through something not in the "
         "data are joined by a dashed two-headed link, a <-> b, a shared cause. Laid out by Graphviz when it is "
-        "installed. Hover a node to see its arrows alone, and listed.",
+        "installed. Click a node, then another, to add or remove the link between them; click a link to remove it. "
+        "Every edit re-reads the implied independencies and their verdicts from the table of tests the build made, "
+        "so nothing is recomputed on the data. Hover a node to see its arrows alone, and listed. The edit stays in "
+        "this browser; copy it into the spec from \"As yaml\".",
         "A missing link is a claim too: it says the two have nothing to do with each other except through the "
-        "arrows drawn. Those claims are what the independencies below test.",
+        "arrows drawn. Those claims are what the independencies below test. A link drawn dotted grey is one the "
+        "data does not need: some set separates its ends.",
         "The graph is an assumption the data can contradict but not confirm: many graphs imply the same "
-        "independencies.",
-        see=["independence", "relation", "conditional"]),
+        "independencies. The questions' marks follow the spec's graph, not an edit.",
+        see=["found", "independence", "relation", "conditional"]),
+    "found": Concept(
+        "found", "What the data needs",
+        "The sparsest graph over these levels that fails none of the independencies it implies, drawn beside yours.",
+        "The build tests every pair of variables given every set of up to three others from their levels or "
+        "earlier, with the kernel test, and keeps the table. A graph is judged as yours is: every pair without a "
+        "link, given the smallest set that separates them in it. Then, from no links: while some implied "
+        "independence fails, link the pair whose fails hardest; once none fails, drop every link whose absence "
+        "brings no fail, the last added first. Across levels a link is an arrow from the earlier; within a level, "
+        "where no arrow may go, a shared cause a <-> b. Because the levels fix every arrow's direction, there is "
+        "no family of equivalent graphs to choose from.",
+        "Red links are ones your graph lacks; hover one for the independence that fails without it. Beneath, the "
+        "links yours has that the data does not need, with the set that separates them in the data's graph. "
+        "\"Use the data's graph\" loads it into yours.",
+        "Sparse by construction, not unique: another order of adding could end elsewhere. The tests run on 2000 "
+        "outcomes drawn from hours that are not independent, so a fail can be an eager test and a tiny dependence "
+        "can pass. A dependence across levels that no set removes may still be a shared cause rather than an "
+        "arrow: observational data alone cannot tell them apart, only a same-level pair is unambiguous.",
+        look="volume_1 -> day_ahead_se3 (p 0.005)", see=["dag", "shared-cause", "independence"]),
+    "shared-cause": Concept(
+        "shared-cause", "Shared cause a <-> b",
+        "Two variables of one level that move together through something not in the data.",
+        "Drawn as a hidden node with an arrow to each, so d-separation treats the pair as joined. The spec writes "
+        "it as a <-> b; the data's graph proposes one wherever two variables of a level stay dependent given every "
+        "set of up to three earlier ones, since within a level no arrow is allowed.",
+        "A proposal names what the data is missing: a cause of both that was not measured. Think of what it could "
+        "be, the season, the hydro situation, a bid stack, and whether it can be added as a variable.",
+        "The data says only that something joins them, not what. Across levels the same dependence looks like an "
+        "arrow, so a shared cause there goes unseen.",
+        look="volume_1 <-> price_1", see=["found", "dag"]),
     "independence": Concept(
         "independence", "Implied independence",
         "A pair of variables the graph says are independent, once some others are held fixed, and whether the data "

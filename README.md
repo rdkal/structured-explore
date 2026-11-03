@@ -37,9 +37,18 @@ data. The page draws them top to bottom, laid out by Graphviz when `dot` is inst
 highlighted and listed on hover. For every two variables with no link it finds the smallest set that d-separates them
 and tests that independence on the data with a kernel conditional-independence test, RCoT (random Fourier features,
 linear time, on 2000 outcomes), which sees any shape of dependence; it says holds, fails or unclear, with the partial
-rank correlation beside it for size and sign. Each conditional answer is marked with where its given stands to its
-event in the graph: upstream, downstream, a common cause only, or unconnected. A fail is a missing arrow; an
-outside-the-null answer between unconnected variables is a missing path. The graph is tested, never confirmed.
+rank correlation beside it for size and sign. A fail is a missing arrow or a missing cause. The graph is tested, never
+confirmed.
+
+The build does not stop at the author's graph. It tests every pair given every set of up to three variables from
+their levels or earlier and keeps the table, so the page can judge any graph over these levels without the data:
+click a node, then another, to add or remove the link between them, or click a link to remove it, and the
+independencies and verdicts follow at once. From the same table the build finds the sparsest graph that fails none of
+the independencies it implies, forward from no links and then pruned, and draws it beside the author's: red for a link
+the author lacks, and a list of the author's links the data does not need. A pair within one level that stays
+dependent is proposed as a shared cause, `a <-> b`, since no arrow may go there. Each conditional answer is marked
+with where its given stands to its event in the author's graph: upstream, downstream, a common cause only, or
+unconnected.
 
 ## Learning as you read
 

@@ -125,63 +125,143 @@ function legend(a) {
 }
 
 // --- the graph ---------------------------------------------------------------------------------------------------
+// The spec's graph is the starting point; the reader edits a copy here, and every verdict is looked up in the table
+// the build made: every pair of variables tested given every set of up to max_given variables from their levels or
+// earlier. So any graph over these levels is judged without the data, instantly. The same table gives the sparsest
+// graph the data allows, drawn beside the reader's.
 
-function dag(g) {
-  // Positions and splines from Graphviz when the build had it (g.layout); else rows by level, arrows bowed aside.
-  const nodeH = 28, width = (n) => n.length * 7.4 + 22;
-  let W, H, pos = {}, paths = [];
-  if (g.layout) {
-    W = g.layout.w; H = g.layout.h;
-    for (const [n, [x, y, w, h]] of Object.entries(g.layout.nodes)) pos[n] = { x: x - w / 2, y: y - h / 2, w, h };
-    for (const e of g.layout.edges) {
-      const p = e.points;
-      let d = `M ${p[0][0]} ${p[0][1]}`;
-      for (let i = 1; i + 2 < p.length; i += 3) d += ` C ${p[i][0]} ${p[i][1]}, ${p[i + 1][0]} ${p[i + 1][1]}, ${p[i + 2][0]} ${p[i + 2][1]}`;
-      paths.push({ a: e.a, b: e.b, d, latent: g.latent.some(([x, y]) => (x === e.a && y === e.b) || (x === e.b && y === e.a)) });
-    }
-  } else {
-    const rowH = 78, pad = 14, gapX = 28, rows = g.levels;
-    const rowW = rows.map((r) => r.reduce((w, n) => w + width(n), 0) + gapX * Math.max(r.length - 1, 0));
-    W = Math.max(...rowW, 240) + pad * 2 + 80;
-    H = pad * 2 + rows.length * rowH - (rowH - nodeH) + 10;
-    const level = {};
-    rows.forEach((r, i) => { let x = (W - rowW[i]) / 2; for (const n of r) { pos[n] = { x, y: pad + 10 + i * rowH, w: width(n), h: nodeH }; level[n] = i; x += width(n) + gapX; } });
-    let side = 1;
-    for (const [a, b] of g.edges) {
-      const A = pos[a], B = pos[b];
-      if (!A || !B) continue;
-      const skip = level[b] - level[a] - 1, x1 = A.x + A.w / 2, y1 = A.y + nodeH, x2 = B.x + B.w / 2, y2 = B.y;
-      const bow = skip ? side * (34 + 26 * skip) : 0;
-      if (skip) side = -side;
-      const dy = (y2 - y1) / 2;
-      paths.push({ a, b, d: `M ${x1} ${y1} C ${x1 + bow} ${y1 + dy}, ${x2 + bow} ${y2 - dy}, ${x2} ${y2}`, latent: false });
-    }
-    for (const [a, b] of g.latent) {
-      const A = pos[a], B = pos[b];
-      if (!A || !B) continue;
-      const x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y = Math.min(A.y, B.y);
-      paths.push({ a, b, d: `M ${x1} ${y} C ${x1} ${y - 26}, ${x2} ${y - 26}, ${x2} ${y}`, latent: true });
-    }
+const NODES = data.variables.map((v) => v.column);
+const ORDER = Object.fromEntries(NODES.map((n, i) => [n, i]));
+const DEPTH = {};
+if (data.graph) data.graph.levels.forEach((level, i) => level.forEach((n) => (DEPTH[n] = i)));
+const byOrder = (a, b) => ORDER[a] - ORDER[b];
+function tkey(x, y, z) {
+  const [a, b] = ORDER[x] < ORDER[y] ? [x, y] : [y, x];
+  return `${a}|${b}|${[...z].sort(byOrder).join(",")}`;
+}
+const TABLE = new Map(data.graph ? data.graph.table.map((i) => [tkey(i.x, i.y, i.given), i]) : []);
+const sameLink = (e, f) => e[0] === f[0] && e[1] === f[1];
+const hasLink = (list, e) => list.some((f) => sameLink(e, f));
+
+function arrowsOf(g) {
+  const out = g.edges.map((e) => [e[0], e[1]]);
+  g.latent.forEach(([a, b], i) => out.push([`_latent${i}`, a], [`_latent${i}`, b]));
+  return out;
+}
+// Whether every path between x and y is blocked given z: in the moral graph of the ancestors of x, y and z, with
+// z removed, x and y are not connected. The same as graph.d_separated in Python.
+function dsep(g, x, y, z) {
+  const arr = arrowsOf(g), par = {};
+  for (const [a, b] of arr) (par[b] ||= []).push(a);
+  const keep = new Set([x, y, ...z]), todo = [...keep];
+  while (todo.length) { const n = todo.pop(); for (const p of par[n] || []) if (!keep.has(p)) { keep.add(p); todo.push(p); } }
+  const adj = {}, link = (a, b) => { (adj[a] ||= new Set()).add(b); (adj[b] ||= new Set()).add(a); };
+  for (const [a, b] of arr) if (keep.has(a) && keep.has(b)) link(a, b);
+  for (const n of keep) { const ps = (par[n] || []).filter((p) => keep.has(p)); for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) link(ps[i], ps[j]); }
+  const zs = new Set(z), seen = new Set([x]), stack = [x];
+  while (stack.length) { const n = stack.pop(); for (const m of adj[n] || []) { if (zs.has(m) || seen.has(m)) continue; if (m === y) return false; seen.add(m); stack.push(m); } }
+  return true;
+}
+function combos(arr, k) {
+  if (k === 0) return [[]];
+  const out = [];
+  arr.forEach((v, i) => { for (const c of combos(arr.slice(i + 1), k - 1)) out.push([v, ...c]); });
+  return out;
+}
+// The sets a separating set may be drawn from, smallest first, as graph.sets in Python: the table has every one.
+function sets(x, y) {
+  const top = Math.max(DEPTH[x], DEPTH[y]), c = NODES.filter((n) => n !== x && n !== y && DEPTH[n] <= top);
+  const out = [];
+  for (let k = 0; k <= Math.min(data.graph.max_given, c.length); k++) out.push(...combos(c, k));
+  return out;
+}
+const adjacentIn = (g, x, y) => hasLink(g.edges, [x, y]) || hasLink(g.edges, [y, x]) || hasLink(g.latent, [x, y]) || hasLink(g.latent, [y, x]);
+// What the graph g implies, with the table's verdict on each: for every pair without a link, the smallest set that
+// separates them; pairs no set of up to max_given separates are counted, not tested.
+function impliedOf(g) {
+  const out = [], none = [];
+  for (let i = 0; i < NODES.length; i++) for (let j = i + 1; j < NODES.length; j++) {
+    const x = NODES[i], y = NODES[j];
+    if (adjacentIn(g, x, y)) continue;
+    const z = sets(x, y).find((z) => dsep(g, x, y, z));
+    if (z === undefined) { none.push([x, y]); continue; }
+    out.push(TABLE.get(tkey(x, y, z)) || { x, y, given: z, verdict: "untested", n: 0 });
   }
+  return { out, none };
+}
+
+// Node positions: Graphviz's when the build had it, else rows by level. Fixed for the page; only the links change.
+function positions() {
+  const g = data.graph, nodeH = 28, width = (n) => n.length * 7.4 + 22, pos = {};
+  if (g.layout) {
+    for (const [n, [x, y, w, h]] of Object.entries(g.layout.nodes)) pos[n] = { x: x - w / 2, y: y - h / 2, w, h };
+    return { W: g.layout.w, H: g.layout.h, pos };
+  }
+  const rowH = 78, pad = 14, gapX = 28, rows = g.levels;
+  const rowW = rows.map((r) => r.reduce((w, n) => w + width(n), 0) + gapX * Math.max(r.length - 1, 0));
+  const W = Math.max(...rowW, 240) + pad * 2 + 80, H = pad * 2 + rows.length * rowH - (rowH - nodeH) + 10;
+  rows.forEach((r, i) => { let x = (W - rowW[i]) / 2; for (const n of r) { pos[n] = { x, y: pad + 10 + i * rowH, w: width(n), h: nodeH }; x += width(n) + gapX; } });
+  return { W, H, pos };
+}
+const POS = data.graph ? positions() : null;
+const SPLINE = new Map();
+if (data.graph && data.graph.layout) for (const e of data.graph.layout.edges) {
+  const p = e.points;
+  let d = `M ${p[0][0]} ${p[0][1]}`;
+  for (let i = 1; i + 2 < p.length; i += 3) d += ` C ${p[i][0]} ${p[i][1]}, ${p[i + 1][0]} ${p[i + 1][1]}, ${p[i + 2][0]} ${p[i + 2][1]}`;
+  SPLINE.set(`${e.a}|${e.b}`, d);
+}
+// A link's path: Graphviz's spline when the build drew this very arrow, else a curve bowed aside when it skips levels.
+let bowSide = 1;
+function pathOf(a, b, latent) {
+  if (!latent && SPLINE.has(`${a}|${b}`)) return SPLINE.get(`${a}|${b}`);
+  if (latent && SPLINE.has(`${a}|${b}`)) return SPLINE.get(`${a}|${b}`);
+  const A = POS.pos[a], B = POS.pos[b];
+  if (latent) {
+    const x1 = A.x + A.w / 2, x2 = B.x + B.w / 2, y = Math.min(A.y, B.y);
+    return `M ${x1} ${y} C ${x1} ${y - 26}, ${x2} ${y - 26}, ${x2} ${y}`;
+  }
+  const skip = DEPTH[b] - DEPTH[a] - 1, x1 = A.x + A.w / 2, y1 = A.y + A.h, x2 = B.x + B.w / 2, y2 = B.y;
+  const bow = skip ? bowSide * (34 + 26 * skip) : 0;
+  if (skip) bowSide = -bowSide;
+  const dy = (y2 - y1) / 2;
+  return `M ${x1} ${y1} C ${x1 + bow} ${y1 + dy}, ${x2 + bow} ${y2 - dy}, ${x2} ${y2}`;
+}
+
+// Draws a graph over the page's nodes. opts.cls(a, b, latent) classes a link; opts.title(a, b, latent) names it;
+// opts.onNode(n) and opts.onLink(a, b, latent) make it editable; opts.selected is the node picked first.
+function dag(g, opts = {}) {
+  const { W, H, pos } = POS;
   const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: "img" });
   svg.append(s("defs", {}, s("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" },
     s("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "context-stroke" }))));
+  const links = [...g.edges.map(([a, b]) => ({ a, b, latent: false })), ...g.latent.map(([a, b]) => ({ a, b, latent: true }))];
   const edgeEls = [];
-  for (const p of paths) {
-    const el = s("path", { class: `edge ${p.latent ? "latent" : ""}`, d: p.d, "marker-end": "url(#arrow)", "marker-start": p.latent ? "url(#arrow)" : null });
-    el.append(s("title", {}, p.latent ? `${p.a} <-> ${p.b}: a shared cause not in the data` : `${p.a} → ${p.b}`));
+  bowSide = 1;
+  for (const p of links) {
+    if (!pos[p.a] || !pos[p.b]) continue;
+    const d = pathOf(p.a, p.b, p.latent);
+    const el = s("path", { class: `edge ${p.latent ? "latent" : ""} ${opts.cls ? opts.cls(p.a, p.b, p.latent) : ""}`, d, "marker-end": "url(#arrow)", "marker-start": p.latent ? "url(#arrow)" : null });
+    el.append(s("title", {}, opts.title ? opts.title(p.a, p.b, p.latent) : p.latent ? `${p.a} <-> ${p.b}: a shared cause not in the data` : `${p.a} → ${p.b}`));
     el.dataset.a = p.a; el.dataset.b = p.b;
     svg.append(el);
     edgeEls.push(el);
+    if (opts.onLink) {
+      const hit = s("path", { class: "hit", d });
+      hit.append(s("title", {}, `remove ${p.latent ? `${p.a} <-> ${p.b}` : `${p.a} → ${p.b}`}`));
+      hit.addEventListener("click", () => opts.onLink(p.a, p.b, p.latent));
+      svg.append(hit);
+    }
   }
-  const list = h("p", { class: "arrows small" }, "Hover a node for its arrows.");
+  const list = h("p", { class: "arrows small hint" }, opts.hint || "Hover a node for its arrows.");
   const nodeEls = {};
-  for (const n of Object.keys(pos)) {
+  for (const n of NODES) {
     const p = pos[n], v = VARS[n];
-    const gEl = s("g", { class: `node ${v && v.expr ? "derived" : ""}`, transform: `translate(${p.x} ${p.y})` });
+    if (!p) continue;
+    const gEl = s("g", { class: `node ${v && v.expr ? "derived" : ""} ${opts.selected === n ? "sel" : ""}`, transform: `translate(${p.x} ${p.y})` });
     gEl.append(s("rect", { width: p.w, height: p.h }), s("text", { x: p.w / 2, y: p.h / 2 + 4, "text-anchor": "middle" }, n));
     gEl.append(s("title", {}, v ? `${n}: ${v.meaning} (${v.observed})` : n));
-    gEl.addEventListener("click", () => openPane("variable", { variable: v }));
+    gEl.addEventListener("click", () => (opts.onNode ? opts.onNode(n) : openPane("variable", { variable: v })));
     gEl.addEventListener("mouseenter", () => focus(n));
     gEl.addEventListener("mouseleave", () => focus(null));
     svg.append(gEl);
@@ -190,32 +270,107 @@ function dag(g) {
   function focus(n) {
     svg.classList.toggle("dim", n != null);
     for (const el of edgeEls) el.classList.toggle("lit", n != null && (el.dataset.a === n || el.dataset.b === n));
-    for (const [m, el] of Object.entries(nodeEls)) el.classList.toggle("lit", n != null && (m === n || paths.some((p) => (p.a === n && p.b === m) || (p.b === n && p.a === m))));
-    if (n == null) { list.textContent = "Hover a node for its arrows."; return; }
-    const from = paths.filter((p) => p.b === n && !p.latent).map((p) => p.a), to = paths.filter((p) => p.a === n && !p.latent).map((p) => p.b);
-    const with_ = paths.filter((p) => p.latent && (p.a === n || p.b === n)).map((p) => (p.a === n ? p.b : p.a));
+    for (const [m, el] of Object.entries(nodeEls)) el.classList.toggle("lit", n != null && (m === n || links.some((p) => (p.a === n && p.b === m) || (p.b === n && p.a === m))));
+    list.classList.toggle("hint", n == null);
+    if (n == null) { list.textContent = opts.hint || "Hover a node for its arrows."; return; }
+    const from = links.filter((p) => p.b === n && !p.latent).map((p) => p.a), to = links.filter((p) => p.a === n && !p.latent).map((p) => p.b);
+    const with_ = links.filter((p) => p.latent && (p.a === n || p.b === n)).map((p) => (p.a === n ? p.b : p.a));
     list.replaceChildren(code(n), from.length ? ` ← ${from.join(", ")}` : " ← nothing in the data", to.length ? `   ${n} → ${to.join(", ")}` : "", with_.length ? `   <-> ${with_.join(", ")}` : "");
   }
-  return h("div", {}, svg, list);
+  return h("div", { class: "dag" }, svg, list);
 }
 
 const VERDICT = { holds: ["✓", "holds"], fails: ["✗", "fails"], unclear: ["~", "unclear"], untested: ["–", "untested"] };
+const pfmt = (p) => (p == null ? "–" : p < 0.001 ? "<0.001" : p.toFixed(3));
+const indText = (i) => `${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`;
 
 function independencies(g) {
-  if (!g.independencies.length) return h("p", { class: "small" }, "Every pair of variables has an arrow: the graph implies no independence to test.");
-  const rows = g.independencies.map((i) => {
+  const { out, none } = impliedOf(g);
+  if (!out.length && !none.length) return h("p", { class: "small" }, "Every pair of variables has a link: the graph implies no independence to test.");
+  const rows = out.map((i) => {
     const [glyph, word] = VERDICT[i.verdict];
     return h("tr", { onclick: () => openPane("independence", { independence: i }), style: "cursor:help" },
-      h("td", { class: "key" }, `${i.x} ⊥ ${i.y}${i.given.length ? " | " + i.given.join(", ") : ""}`),
-      h("td", { class: "num" }, i.p == null ? "–" : i.p < 0.001 ? "<0.001" : i.p.toFixed(3)),
+      h("td", { class: "key" }, indText(i)),
+      h("td", { class: "num" }, pfmt(i.p)),
       h("td", { class: "num" }, i.r == null ? "–" : `${f2(i.r)} [${f2(i.lo)}, ${f2(i.hi)}]`),
       h("td", { class: "num" }, i.n || "–"),
       h("td", { class: `num verdict-${i.verdict}` }, `${glyph} ${word}`));
   });
-  const n = g.independencies.length, fails = g.independencies.filter((i) => i.verdict === "fails").length;
-  return h("details", { open: fails > 0 }, h("summary", {}, `${n} implied independencies, ${fails} fail`, fails ? "" : ": the data does not contradict the graph"),
+  const fails = out.filter((i) => i.verdict === "fails").length;
+  return h("details", { open: fails > 0 }, h("summary", {}, `${out.length} implied independencies, ${fails} fail`, fails ? "" : ": the data does not contradict the graph",
+      none.length ? `; ${none.length} pairs no set of up to ${data.graph.max_given} separates, untested` : ""),
     h("table", { class: "ind" }, h("thead", {}, h("tr", {}, h("th", {}, term("implied", "independence")), h("th", { class: "num" }, "kernel p"), h("th", { class: "num" }, "partial r"), h("th", { class: "num" }, "n"), h("th", { class: "num" }, "verdict"))),
       h("tbody", {}, ...rows)));
+}
+
+// The reader's graph: the spec's until edited, kept per page.
+function currentGraph() {
+  const g = data.graph, saved = store.get("graph");
+  const ok = (e) => Array.isArray(e) && e.length === 2 && e.every((n) => n in DEPTH);
+  if (saved && Array.isArray(saved.edges) && Array.isArray(saved.latent) && [...saved.edges, ...saved.latent].every(ok)) return saved;
+  return { edges: g.edges.map((e) => [...e]), latent: g.latent.map((e) => [...e]) };
+}
+const arrowText = (a, b, latent) => (latent ? `${a} <-> ${b}` : `${a} -> ${b}`);
+const linkKeyOf = ([a, b]) => `${a}|${b}`;
+
+function graphSection() {
+  const g = data.graph, found = g.found;
+  const body = h("div", {});
+  let cur = currentGraph(), selected = null;
+  const isSpec = () => cur.edges.length === g.edges.length && cur.latent.length === g.latent.length && cur.edges.every((e) => hasLink(g.edges, e)) && cur.latent.every((e) => hasLink(g.latent, e));
+  const foundEdges = found ? found.edges.map((e) => [e.a, e.b]) : [], foundLatent = found ? found.latent.map((e) => [e.a, e.b]) : [];
+  const separatedOf = (a, b) => found && found.separated.find((s) => (s.x === a && s.y === b) || (s.x === b && s.y === a));
+  const foundLink = (a, b) => found && [...found.edges, ...found.latent].find((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a));
+  function set(next) { cur = next; selected = null; store.set("graph", cur); render(); }
+  function toggle(a, b, latent) {
+    const list = latent ? cur.latent : cur.edges, i = list.findIndex((e) => sameLink(e, [a, b]));
+    if (i >= 0) list.splice(i, 1); else list.push([a, b]);
+    set({ edges: cur.edges, latent: cur.latent });
+  }
+  function onNode(n) {
+    if (selected == null) { selected = n; render(); return; }
+    if (selected === n) { selected = null; render(); openPane("variable", { variable: VARS[n] }); return; }
+    const [a, b] = DEPTH[selected] <= DEPTH[n] ? [selected, n] : [n, selected];
+    if (DEPTH[a] === DEPTH[b]) toggle(a, b, true);
+    else { const j = cur.edges.findIndex((e) => sameLink(e, [b, a])); if (j >= 0) cur.edges.splice(j, 1); toggle(a, b, false); }
+  }
+  function render() {
+    const mine = dag(cur, {
+      onNode, onLink: toggle, selected,
+      hint: selected ? `${selected} picked: click another node to link or unlink them, or ${selected} again for what it is.` : "Click a node, then another, to add or remove the link between them; click a link to remove it.",
+      cls: (a, b) => (found && !foundLink(a, b) ? "unneeded" : ""),
+      title: (a, b, latent) => { const sep = separatedOf(a, b); return `${arrowText(a, b, latent)}${sep ? `: not needed, ${indText(sep)} ${VERDICT[sep.verdict][1]}, p = ${pfmt(sep.p)}` : found && !foundLink(a, b) ? ": not needed, untested" : ""}`; },
+    });
+    const theirs = found ? dag({ edges: foundEdges, latent: foundLatent }, {
+      hint: "Hover a node for its arrows. Red: a link your graph lacks.",
+      cls: (a, b, latent) => (hasLink(latent ? cur.latent : cur.edges, [a, b]) ? "" : "missing"),
+      title: (a, b, latent) => { const f = foundLink(a, b); return `${arrowText(a, b, latent)}: without it ${indText(f.without)} fails, p = ${pfmt(f.p)}`; },
+    }) : null;
+    const missing = found ? [...found.edges.filter((e) => !hasLink(cur.edges, [e.a, e.b])).map((e) => [e, false]), ...found.latent.filter((e) => !hasLink(cur.latent, [e.a, e.b])).map((e) => [e, true])] : [];
+    const unneeded = found ? [...cur.edges.map((e) => [e, false]), ...cur.latent.map((e) => [e, true])].filter(([e]) => !foundLink(e[0], e[1])) : [];
+    const diff = h("div", { class: "diff small" });
+    if (!found) diff.append(h("p", {}, "No table of tests: the data's graph is not known."));
+    else if (!missing.length && !unneeded.length) diff.append(h("p", {}, "Your graph is the data's: every link it needs, none it does not."));
+    else {
+      if (missing.length) diff.append(h("p", {}, h("b", { class: "bad" }, "The data needs, yours lacks: "), ...missing.flatMap(([e, latent], i) => [i ? ", " : "", code(arrowText(e.a, e.b, latent)), ` (p ${pfmt(e.p)})`]),
+        missing.some(([, l]) => l) ? [" — a link within a level is a ", term("shared cause", "shared-cause"), " not in the data."] : ""));
+      if (unneeded.length) diff.append(h("p", {}, h("b", {}, "Yours has, the data does not need: "), ...unneeded.flatMap(([e, latent], i) => { const sep = separatedOf(e[0], e[1]); return [i ? ", " : "", code(arrowText(e[0], e[1], latent)), sep ? ` (${indText(sep)} ${VERDICT[sep.verdict][1]}, p ${pfmt(sep.p)})` : ` (no set of up to ${data.graph.max_given} separates them there: untested)`]; })));
+    }
+    const yaml = h("pre", { class: "yaml" }, ["  edges:", ...cur.edges.map(([a, b]) => `    - ${a} -> ${b}`), ...cur.latent.map(([a, b]) => `    - ${a} <-> ${b}`)].join("\n"));
+    const tools = h("div", { class: "toolbar" },
+      found ? h("button", { type: "button", onclick: () => set({ edges: foundEdges.map((e) => [...e]), latent: foundLatent.map((e) => [...e]) }) }, "Use the data's graph") : null,
+      h("button", { type: "button", disabled: isSpec(), onclick: () => set({ edges: g.edges.map((e) => [...e]), latent: g.latent.map((e) => [...e]) }) }, "Back to the spec's"),
+      h("details", { class: "yaml" }, h("summary", {}, "As yaml, for the spec"), yaml),
+      isSpec() ? null : h("span", { class: "small" }, "Edited: the questions' marks below still follow the spec's graph."));
+    body.replaceChildren(
+      h("div", { class: "dags" },
+        h("div", {}, h("h3", {}, isSpec() ? "The spec's graph" : "Your graph", help("dag")), mine),
+        found ? h("div", {}, h("h3", {}, term("What the data needs", "found"), help("found")), theirs) : null),
+      diff, tools, independencies(cur));
+  }
+  render();
+  return h("section", { id: "graph" }, h("h2", {}, term("Graph", "dag"), help("dag")),
+    g.notes ? h("p", { class: "small" }, g.notes) : null, body);
 }
 
 // --- the pane: explanations, with this page's numbers and a drawing ---------------------------------------------
@@ -268,7 +423,7 @@ function openIndex() {
   paneStack = [];
   const groups = [
     ["The data", ["sample-space", "outcome", "variable", "observed", "entry", "join", "undefined", "days"]],
-    ["The graph", ["dag", "independence", "relation", "graph"]],
+    ["The graph", ["dag", "found", "shared-cause", "independence", "relation", "graph"]],
     ["Events and questions", ["event", "named", "marginal", "joint", "conditional"]],
     ["Reading an answer", ["count", "interval", "shuffle", "split_half", "guess", "record"]],
     ["The figures", ["bar", "spine", "lineup"]],
@@ -332,7 +487,9 @@ function here(id, ctx) {
   if (e) {
     if (["event", "named", "undefined", "count"].includes(id)) return h("p", {}, code(e.where), e.meaning ? `: ${e.meaning}.` : ".", ` True on ${ofN(e.true, e.N)}, named ${e.defined_when} looking`, e.undefined ? `, undefined on ${e.undefined}.` : ".");
   }
-  if (id === "dag" && data.graph) return h("p", {}, `${data.variables.length} variables, ${data.graph.edges.length} arrows, ${data.graph.independencies.length} implied independencies.`);
+  if (id === "dag" && data.graph) return h("p", {}, `${data.variables.length} variables in ${data.graph.levels.length} levels; the spec draws ${data.graph.edges.length} arrows and ${data.graph.latent.length} shared causes, implying ${data.graph.independencies.length} independencies.`);
+  if ((id === "found" || id === "shared-cause") && data.graph && data.graph.found) { const f = data.graph.found;
+    return h("p", {}, `${data.graph.table.length} tests, every pair given every set of up to ${data.graph.max_given}. The data needs ${f.edges.length} arrows and ${f.latent.length} shared causes; the ${f.separated.length} other pairs are separated, none fails.`); }
   if (id === "sample-space" || id === "outcome" || id === "entry") { const sp = data.sample_space;
     return h("p", {}, `One outcome is ${sp.outcome}. ${sp.N} outcomes`, sp.time ? ` over ${sp.days} days, ${sp.per_day_min} to ${sp.per_day_max} a day.` : "."); }
   if (id === "days") { const sp = data.sample_space; return sp.time ? h("p", {}, `${sp.days} days in ${sp.timezone}, ${sp.first} to ${sp.last}.`) : null; }
@@ -459,14 +616,6 @@ function dataSection() {
   return h("section", { id: "data" }, h("h2", {}, term("Data", "sample-space"), help("sample-space")),
     h("p", {}, "One ", term("outcome", "outcome"), " is ", h("b", {}, sp.outcome), "."), table,
     h("details", {}, h("summary", {}, "Where the rows come from"), dl), raw);
-}
-
-function graphSection() {
-  const g = data.graph;
-  return h("section", { id: "graph" }, h("h2", {}, term("Graph", "dag"), help("dag")),
-    h("div", { class: "dag" }, g.edges.length ? dag(g) : h("p", { class: "small" }, "No arrows drawn.")),
-    g.notes ? h("p", { class: "small" }, g.notes) : null,
-    g.edges.length ? independencies(g) : null);
 }
 
 function eventsSection() {

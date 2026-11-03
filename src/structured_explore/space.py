@@ -102,11 +102,11 @@ def columns(con: duckdb.DuckDBPyConnection) -> list[str]:
 
 
 def numeric(con: duckdb.DuckDBPyConnection, names: list[str]) -> dict[str, np.ndarray | None]:
-    """Each variable as a float array over Ω's rows, nan where null, all from one pass so the rows line up; None for
-    one that is not a number."""
+    """Each variable as a float array over Ω's rows, nan where null, all from one pass so the rows line up and in a
+    fixed order so a seed gives the same draws; None for one that is not a number."""
     if not names:
         return {}
-    cols = con.execute(f"select {', '.join(f'try_cast({n} as double) as {n}' for n in names)} from omega").fetchnumpy()
+    cols = con.execute(f"select {', '.join(f'try_cast({n} as double) as {n}' for n in names)} from omega order by all").fetchnumpy()
     out = {}
     for name in names:
         arr = cols[name]

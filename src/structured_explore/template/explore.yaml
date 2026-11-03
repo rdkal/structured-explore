@@ -34,7 +34,8 @@ sample_space:
 
 # The variables in time order, a list per level, and the arrows between them, cause -> effect, always from an
 # earlier level to a later one. Two of one level that move together through something not in the data: a <-> b.
-# A pair with no arrow and no <-> is a claim of independence, which the page tests.
+# A pair with no arrow and no <-> is a claim of independence, which the page tests. The page also draws the sparsest
+# graph the data allows beside this one, and lets you edit this one and copy the result back here.
 graph:
   levels:
     - [<variable>]

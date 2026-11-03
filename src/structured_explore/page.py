@@ -17,9 +17,12 @@ WEB = Path(__file__).parent / "web"
 
 
 def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: Events, answers: list[Answer],
-         independencies: list[Independence]) -> dict:
+         independencies: list[Independence], table: dict[tuple, Independence] | None = None,
+         found: dict | None = None) -> dict:
     s = spec.sample_space
     cols, rows = raw
+    columns = [v.column for v in spec.variables]
+    lv = graph.levels(spec.graph, columns) if spec.graph else []
     return {
         "title": spec.title, "phenomenon": spec.phenomenon, "home": spec.home,
         "sample_space": {"outcome": s.outcome, "source": s.source, "where": s.where, "entry": s.entry, "time": s.time,
@@ -32,10 +35,11 @@ def data(spec: Spec, obs: Observation, raw: tuple[list[str], list[tuple]], ev: E
                        "high": c.high} for c in obs.variables],
         "raw": {"columns": cols, "rows": [[str(c) if c is not None else "" for c in r] for r in rows]},
         "graph": {"edges": [list(e) for e in spec.graph.edges], "latent": [list(e) for e in spec.graph.latent],
-                  "levels": graph.levels(spec.graph, [v.column for v in spec.variables]), "notes": spec.graph.notes,
-                  "layout": graph.layout(spec.graph, [v.column for v in spec.variables],
-                                         graph.levels(spec.graph, [v.column for v in spec.variables])),
-                  "independencies": [i.to_dict() for i in independencies]} if spec.graph else None,
+                  "levels": lv, "notes": spec.graph.notes, "layout": graph.layout(spec.graph, columns, lv),
+                  "independencies": [i.to_dict() for i in independencies],
+                  # Every pair given every set the page may ask about, and the sparsest graph those tests allow.
+                  "table": [i.to_dict() for i in (table or {}).values()], "max_given": graph.MAX_GIVEN,
+                  "found": found} if spec.graph else None,
         "events": [{"where": e.where, "meaning": e.meaning, "defined_when": e.defined,
                     "true": ev.true(e.where), "N": ev.N - ev.undefined(e.where), "undefined": ev.undefined(e.where)}
                    for e in spec.events],

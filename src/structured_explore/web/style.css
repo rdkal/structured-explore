@@ -47,7 +47,7 @@ small, .small { font-size: 0.85rem; color: var(--ink-2); }
 .toc .home { color: var(--ink-3); padding-left: 0; border: 0; }
 .toc .explain { margin-top: 1.2rem; }
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1rem; }
   .toc { position: static; }
   .toc .sub { display: none; }
 }
@@ -119,7 +119,7 @@ button.term { border: 0; background: none; padding: 0; font: inherit; color: inh
 .dag .node.derived rect { stroke-dasharray: 3 2; }
 .dag .node.alone rect { stroke: var(--ink-3); }
 .dag .node text { fill: var(--ink); }
-.dag .node { cursor: help; }
+.dag .node { cursor: pointer; }
 .dag .node:hover rect { stroke: var(--blue); }
 .dag .edge { stroke: var(--ink-2); fill: none; stroke-width: 1.2; }
 .dag .edge.latent { stroke-dasharray: 4 3; stroke: var(--ink-3); }
@@ -127,7 +127,23 @@ button.term { border: 0; background: none; padding: 0; font: inherit; color: inh
 .dag svg.dim .edge.lit { opacity: 1; stroke: var(--blue); stroke-width: 1.6; }
 .dag svg.dim .node { opacity: 0.3; }
 .dag svg.dim .node.lit { opacity: 1; }
+.dag .arrows.hint { font-family: var(--sans); }
 .dag .arrows { font-family: var(--mono); white-space: pre-wrap; min-height: 1.4em; margin: 0.3rem 0 0; }
+.dag .node.sel rect { stroke: var(--blue); stroke-width: 2; fill: var(--blue-soft); }
+.dag .edge.unneeded { stroke: var(--ink-3); stroke-dasharray: 2 3; }
+.dag .edge.missing { stroke: var(--bad); stroke-width: 1.6; }
+.dag svg.dim .edge.lit.missing { stroke: var(--bad); }
+.dag .hit { stroke: transparent; stroke-width: 12; fill: none; pointer-events: stroke; cursor: pointer; }
+.dag .hit:hover + .node, .dag .hit:hover { stroke: rgba(179, 46, 46, 0.12); }
+.dags { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 0.4rem 0 0.8rem; }
+.dags > div { min-width: 0; }
+.dags h3 { font-size: 0.85rem; color: var(--ink-2); margin: 0 0 0.3rem; font-weight: 600; }
+@media (max-width: 700px) { .dags { grid-template-columns: 1fr; } }
+.diff p { margin: 0.3rem 0; }
+.diff .bad { color: var(--bad); }
+details.yaml { font-size: 0.85rem; }
+details.yaml summary { cursor: pointer; color: var(--ink-2); }
+pre.yaml { font-size: 0.8rem; background: var(--surface-2); padding: 0.5rem 0.7rem; border-radius: 4px; margin: 0.3rem 0 0; }
 .ind td.key { white-space: normal; }
 .verdict-holds { color: var(--good); }
 .verdict-fails { color: var(--bad); }

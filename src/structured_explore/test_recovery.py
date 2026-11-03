@@ -106,15 +106,40 @@ def test_graph_independencies(built):
     import json
     d = json.loads((built[1] / "explore.json").read_text())
     ind = {frozenset((i["x"], i["y"], *i["given"])): i["verdict"] for i in d["graph"]["independencies"]}
-    # What the graph implies and the simulation made true.
-    assert ind[frozenset("xz")] == "holds"
-    assert ind[frozenset("yw")] == "holds"          # the collider k is not conditioned on
-    assert ind[frozenset("xs")] == "holds"
-    assert ind[frozenset("cy")] == "holds"
-    assert ind[frozenset("xky")] == "holds"         # x ⊥ k | y
+    # What the graph implies and the simulation made true: one in twenty true claims lands unclear by chance, so
+    # the check is that none fails.
+    for claim in ["xz", "yw", "xs", "cy", "xky"]:    # y ⊥ w: the collider k is not conditioned on; x ⊥ k | y
+        assert ind[frozenset(claim)] != "fails", claim
     # No implied independence fails in data drawn from the graph.
     assert "fails" not in ind.values(), ind
     assert all(i["p"] is not None and i["n_kernel"] == 2000 for i in d["graph"]["independencies"])
+
+
+def test_discovery_finds_the_planted_graph(built):
+    # From the table alone, the sparsest graph that fails none of its implied independencies is the one simulated.
+    import json
+    f = json.loads((built[1] / "explore.json").read_text())["graph"]["found"]
+    assert {(e["a"], e["b"]) for e in f["edges"]} == set(spec(Path("x")).graph.edges)
+    assert f["latent"] == []
+    assert all(e["without"]["verdict"] == "fails" for e in f["edges"])
+    assert all(s["verdict"] != "fails" for s in f["separated"])
+
+
+def test_discovery_proposes_a_shared_cause(tmp_path):
+    # a and b of one level move together through u, which is not a column: the data's graph says a <-> b.
+    rng = np.random.default_rng(3)
+    N = 4000
+    u = rng.normal(size=N)
+    con = duckdb.connect()
+    con.register("t", {"a": u + rng.normal(size=N), "b": u + rng.normal(size=N), "c": rng.normal(size=N)})
+    con.execute(f"copy t to '{tmp_path}/t.parquet' (format parquet)")
+    v = [Variable(n, n) for n in "abc"]
+    s = Spec("u", "hidden", SampleSpace("one draw", f"{tmp_path}/t.parquet", variables=v),
+             graph=Graph(levels=[["a", "b", "c"]]), events=[Event("a > 0")], questions=[Question("marginal", "a > 0")])
+    build(s, tmp_path / "out")
+    import json
+    f = json.loads((tmp_path / "out" / "explore.json").read_text())["graph"]["found"]
+    assert f["edges"] == [] and [(e["a"], e["b"]) for e in f["latent"]] == [("a", "b")]
 
 
 def test_graph_catches_a_missing_arrow(tmp_path):
@@ -190,7 +215,7 @@ def test_every_kind_is_explained():
     ids = {c.id for c in concepts.all()}
     assert len(ids) == len(concepts.all())
     for kind in [*questions.QUESTIONS, *nulls.NULLS, *CHECKS, *{f.__name__ for f in figures.FIGURES.values()}, "lineup",
-                 "dag", "independence", "relation"]:
+                 "dag", "found", "shared-cause", "independence", "relation"]:
         assert kind in ids, kind
     for c in concepts.all():
         for s in c.see:
@@ -237,6 +262,21 @@ def test_gamma_cdf():
     assert abs(gamma_cdf(1.0, 1.0) - (1 - np.exp(-1))) < 1e-9
     assert abs(gamma_cdf(5.0, 5.0) - 0.5595) < 1e-3
     assert gamma_cdf(0, 2) == 0 and gamma_cdf(100, 2) > 0.9999
+
+
+def test_every_set_in_the_table_is_at_hand(built):
+    # The page looks any graph's smallest separating sets up in the table: every one it can ask for is there.
+    import json
+    from structured_explore import graph
+    d = json.loads((built[1] / "explore.json").read_text())["graph"]
+    keys = {(i["x"], i["y"], tuple(i["given"])) for i in d["table"]}
+    nodes = list("xyzctswk")
+    for x, y, z in graph.implied(spec(Path("x")).graph, nodes):
+        assert (x, y, tuple(z)) in keys
+    # and the set drawn from a pair's levels or earlier always separates a pair with no link, so nothing is lost
+    g = spec(Path("x")).graph
+    for x, y in [("x", "s"), ("z", "k"), ("c", "k")]:
+        assert graph.d_separated(g, x, y, set(graph.candidates(nodes, g.levels, x, y)))
 
 
 def test_layout(built):
